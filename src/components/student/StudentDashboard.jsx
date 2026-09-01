@@ -126,7 +126,6 @@ const sideMenu = [
     group: 'ACADEMICS',
     items: [
       'Fee Management',
-      'Exam & Results',
       'Certificates',
       'Performance Analytics',
       'Time Table',

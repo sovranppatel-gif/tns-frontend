@@ -40,7 +40,7 @@ export default function Gallery() {
   }, [active])
 
   return (
-    <section id="gallery" className="bg-white py-12 sm:py-16 lg:py-20">
+    <section id="gallery" className="scroll-mt-28 bg-white py-12 sm:py-16 lg:py-20">
       <div className="container-page">
         <Reveal>
           <p className="section-kicker">Highlights</p>

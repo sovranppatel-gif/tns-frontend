@@ -18,7 +18,7 @@ const docs = [
 
 export default function Admission() {
   return (
-    <section id="admission" className="py-12 sm:py-16 lg:py-20">
+    <section id="admission" className="scroll-mt-28 bg-[#f7f8fb] py-12 sm:py-16 lg:py-20">
       <div className="container-page">
         <Reveal>
           <p className="section-kicker">How to Join</p>

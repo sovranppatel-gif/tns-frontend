@@ -97,7 +97,7 @@ export default function EnquiryForm({ compact = false, className = 'card-surface
         {errors.message && <span className="mt-1 block text-xs font-medium text-brand-red">{errors.message}</span>}
       </label>
 
-      <button type="submit" className="btn-primary mt-6 w-full">
+      <button type="submit" className="btn-gold mt-6 w-full">
         Submit Enquiry
       </button>
       {sent && (

@@ -75,7 +75,7 @@ export const quickActions = [
   { id: 'attendance', label: 'View Attendance', section: 'Attendance' },
   { id: 'fees', label: 'Pay Fees', section: 'Fee Management' },
   { id: 'assignment', label: 'Submit Assignment', section: 'Assignments' },
-  { id: 'result', label: 'View Result', section: 'Exam & Results' },
+  { id: 'result', label: 'View Result', section: 'My Results' },
 ]
 
 export const upcomingHighlights = {

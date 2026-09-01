@@ -137,7 +137,6 @@ function emptyTermFee(termNumber = 1) {
     tuition: '',
     registration: '',
     exam: '',
-    other: '',
     total: '',
   }
 }
@@ -167,7 +166,6 @@ function emptyFees() {
     registration: '',
     exam: '',
     tuition: '',
-    other: '',
     installmentAllowed: true,
     installments: [],
     semesterFees: [],
@@ -202,8 +200,7 @@ function termFeeTotal(fee = {}) {
   return (
     parseFeeAmount(fee.tuition) +
     parseFeeAmount(fee.registration) +
-    parseFeeAmount(fee.exam) +
-    parseFeeAmount(fee.other)
+    parseFeeAmount(fee.exam)
   )
 }
 
@@ -211,8 +208,7 @@ function generalFeeTotal(fees = {}) {
   return (
     parseFeeAmount(fees.tuition) +
     parseFeeAmount(fees.registration) +
-    parseFeeAmount(fees.exam) +
-    parseFeeAmount(fees.other)
+    parseFeeAmount(fees.exam)
   )
 }
 
@@ -273,14 +269,12 @@ function mapFormToPayload(form) {
           const tuition = parseFeeAmount(fee.tuition)
           const registration = parseFeeAmount(fee.registration)
           const exam = parseFeeAmount(fee.exam)
-          const other = parseFeeAmount(fee.other)
-          const computed = tuition + registration + exam + other
+          const computed = tuition + registration + exam
           return {
             termNumber: Number(fee.termNumber) || index + 1,
             tuition,
             registration,
             exam,
-            other,
             total: parseFeeAmount(fee.total) || computed,
           }
         })
@@ -312,7 +306,6 @@ function mapFormToPayload(form) {
       registration: String(form.fees?.registration || '').trim(),
       exam: String(form.fees?.exam || '').trim(),
       tuition: String(form.fees?.tuition || '').trim(),
-      other: String(form.fees?.other || '').trim(),
       installmentAllowed,
       installments: installmentAllowed
         ? (Array.isArray(form.fees?.installments) ? form.fees.installments : [])
@@ -387,7 +380,6 @@ function mapRowToForm(row) {
         tuition: feeInputValue(fee.tuition),
         registration: feeInputValue(fee.registration),
         exam: feeInputValue(fee.exam),
-        other: feeInputValue(fee.other),
         total: feeInputValue(fee.total),
       }))
     : []
@@ -416,7 +408,6 @@ function mapRowToForm(row) {
       registration: row.fees?.registration || '',
       exam: row.fees?.exam || '',
       tuition: feeInputValue(row.fees?.tuition),
-      other: feeInputValue(row.fees?.other),
       installmentAllowed:
         typeof row.fees?.installmentAllowed === 'boolean' ? row.fees.installmentAllowed : true,
       installments: Array.isArray(row.fees?.installments)
@@ -1521,14 +1512,6 @@ export default function CoursesPage() {
                       placeholder="₹1,000"
                     />
                   </Field>
-                  <Field label="Other Fee">
-                    <input
-                      value={form.fees.other}
-                      onChange={(e) => updateFeeField('other', e.target.value)}
-                      className={inputClassName()}
-                      placeholder="₹500"
-                    />
-                  </Field>
                   <Field label="Installment Allowed">
                     <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
                       <input
@@ -1553,7 +1536,7 @@ export default function CoursesPage() {
                         <p className="mb-2 text-sm font-semibold text-slate-800">
                           {getTermLabel(form.structureType, fee.termNumber || index + 1)} Fee
                         </p>
-                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                           <Field label="Tuition Fee">
                             <input
                               value={fee.tuition}
@@ -1572,13 +1555,6 @@ export default function CoursesPage() {
                             <input
                               value={fee.exam}
                               onChange={(e) => updateTermFee(index, 'exam', e.target.value)}
-                              className={inputClassName()}
-                            />
-                          </Field>
-                          <Field label="Other Fee">
-                            <input
-                              value={fee.other}
-                              onChange={(e) => updateTermFee(index, 'other', e.target.value)}
                               className={inputClassName()}
                             />
                           </Field>
@@ -1907,8 +1883,7 @@ export default function CoursesPage() {
                     {getTermLabel(expanded.structureType || 'Semester', fee.termNumber)} Fee
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Tuition {fee.tuition || 0} · Registration {fee.registration || 0} · Exam {fee.exam || 0} ·
-                    Other {fee.other || 0}
+                    Tuition {fee.tuition || 0} · Registration {fee.registration || 0} · Exam {fee.exam || 0}
                   </p>
                   <p className="mt-1 font-medium">Total {fee.total || 0}</p>
                 </article>

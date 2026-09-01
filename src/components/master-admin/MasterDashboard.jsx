@@ -53,6 +53,12 @@ import AdmissionFormPage from './erp/AdmissionFormPage.jsx'
 import UniversitiesPage from './erp/UniversitiesPage.jsx'
 import CoursesPage from './erp/CoursesPage.jsx'
 import FeesPage from './erp/FeesPage.jsx'
+import AccountingPage from './finance/AccountingPage.jsx'
+import ExpensesPage from './finance/ExpensesPage.jsx'
+import IncomePage from './finance/IncomePage.jsx'
+import SalaryManagementPage from './finance/SalaryManagementPage.jsx'
+import PayrollPage from './finance/PayrollPage.jsx'
+import PaymentsPage from './finance/PaymentsPage.jsx'
 import AttendancePage from './erp/AttendancePage.jsx'
 import BatchesPage from './erp/BatchesPage.jsx'
 import StudentsPage from './erp/StudentsPage.jsx'
@@ -155,9 +161,6 @@ const sideMenu = [
       'Homework',
       'Study Materials',
       'Notes',
-      'Question Bank',
-      'Exams',
-      'Results',
       'Certificates',
     ],
   },
@@ -235,6 +238,12 @@ const itemIcon = {
   Batches: FiLayers,
   Attendance: FiCheckCircle,
   Fees: FiDollarSign,
+  Accounting: FiDollarSign,
+  Expenses: FiDollarSign,
+  Income: FiTrendingUp,
+  'Salary Management': FiBriefcase,
+  Payroll: FiUsers,
+  Payments: FiDollarSign,
   Settings: FiSettings,
   Profile: FiUser,
   Notifications: FiBell,
@@ -461,6 +470,17 @@ export default function MasterDashboard() {
     if (activeSection === 'Reports' || activeSection === 'Analytics' || activeSection === 'Downloads' || activeSection === 'Backup' || activeSection === 'Audit Logs') {
       setOpenGroups((prev) => new Set([...prev, 'INSIGHTS']))
     }
+    if (
+      activeSection === 'Fees' ||
+      activeSection === 'Accounting' ||
+      activeSection === 'Expenses' ||
+      activeSection === 'Income' ||
+      activeSection === 'Salary Management' ||
+      activeSection === 'Payroll' ||
+      activeSection === 'Payments'
+    ) {
+      setOpenGroups((prev) => new Set([...prev, 'FINANCE & HR']))
+    }
   }, [activeSection])
 
   const filteredMenu = useMemo(() => {
@@ -528,6 +548,12 @@ export default function MasterDashboard() {
     if (activeSection === 'Universities') return <UniversitiesPage />
     if (activeSection === 'Courses') return <CoursesPage />
     if (activeSection === 'Fees') return <FeesPage />
+    if (activeSection === 'Accounting') return <AccountingPage />
+    if (activeSection === 'Expenses') return <ExpensesPage />
+    if (activeSection === 'Income') return <IncomePage />
+    if (activeSection === 'Salary Management') return <SalaryManagementPage />
+    if (activeSection === 'Payroll') return <PayrollPage />
+    if (activeSection === 'Payments') return <PaymentsPage />
     if (activeSection === 'Attendance') return <AttendancePage />
     if (activeSection === 'Batches') return <BatchesPage />
     if (activeSection === 'Students') return <StudentsPage />

@@ -16,6 +16,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<Navigate to="/#about" replace />} />
         <Route
           path="/signin"
           element={

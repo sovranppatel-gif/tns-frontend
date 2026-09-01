@@ -5,7 +5,7 @@ import EnquiryForm from './EnquiryForm'
 
 export default function Contact() {
   return (
-    <section id="contact" className="py-12 sm:py-16 lg:py-20">
+    <section id="contact" className="scroll-mt-28 bg-[#f7f8fb] py-12 sm:py-16 lg:py-20">
       <div className="container-page grid gap-8 sm:gap-10 lg:grid-cols-[0.9fr_1.1fr]">
         <Reveal>
           <p className="section-kicker">Get in Touch</p>
@@ -79,7 +79,9 @@ export default function Contact() {
         </Reveal>
 
         <Reveal delay={100}>
-          <EnquiryForm />
+          <div id="enquiry" className="scroll-mt-32">
+            <EnquiryForm />
+          </div>
         </Reveal>
       </div>
     </section>

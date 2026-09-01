@@ -521,7 +521,7 @@ export default function StudentsPage() {
     })
   }
 
-  const goResults = () => navigate(masterAdminPath('Results'))
+  const goResults = () => navigate(masterAdminPath('Exam Results'))
 
   const goIdCard = async (row) => {
     try {

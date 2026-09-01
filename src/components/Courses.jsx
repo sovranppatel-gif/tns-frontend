@@ -70,7 +70,7 @@ const courses = [
 
 export default function Courses() {
   return (
-    <section id="courses" className="bg-white py-12 sm:py-16 lg:py-20">
+    <section id="courses" className="scroll-mt-28 bg-white py-12 sm:py-16 lg:py-20">
       <div className="container-page">
         <Reveal>
           <p className="section-kicker">What you can study</p>

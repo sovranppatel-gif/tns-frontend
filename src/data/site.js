@@ -4,6 +4,7 @@ export const PHONES = {
 }
 
 export const telLink = (n) => `tel:+91${n}`
+export const displayPhone = (n) => `+91 ${String(n).slice(0, 5)} ${String(n).slice(5)}`
 export const waLink = (n, text = '') => {
   const base = `https://wa.me/91${n}`
   return text ? `${base}?text=${encodeURIComponent(text)}` : base
@@ -24,13 +25,20 @@ export const SITE = {
     'https://www.google.com/maps/search/?api=1&query=Ram+Colony+Belapurkar+Ward+Narsinghpur+Madhya+Pradesh+487001',
   website: 'https://www.tnsiti.com',
   email: 'info@tnsiti.com',
+  social: {
+    facebook: 'https://www.facebook.com',
+    instagram: 'https://www.instagram.com',
+    youtube: 'https://www.youtube.com',
+  },
 }
 
 export const NAV_LINKS = [
   { href: '#home', label: 'Home' },
-  { href: '#about', label: 'About' },
+  { href: '#facilities', label: 'Facilities' },
+  { href: '#about', label: 'About Us' },
   { href: '#courses', label: 'Courses' },
+  { href: '#admission', label: 'Admissions' },
+  { href: '#placement', label: 'Placement' },
   { href: '#gallery', label: 'Gallery' },
-  { href: '#admission', label: 'Admission' },
-  { href: '#contact', label: 'Contact' },
+  { href: '#contact', label: 'Contact Us' },
 ]

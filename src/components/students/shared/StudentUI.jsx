@@ -65,13 +65,13 @@ export function ProgressBar({ value, label, color = 'orange' }) {
 export function StatusBadge({ status }) {
   const key = String(status || '').toLowerCase()
   let classes = 'bg-slate-100 text-slate-600'
-  if (['paid', 'success', 'completed', 'present', 'resolved', 'approved', 'issued', 'pass', 'active', 'on track', 'published', 'correct', 'ok', 'ready'].includes(key)) {
+  if (['paid', 'success', 'completed', 'present', 'resolved', 'approved', 'issued', 'pass', 'active', 'on track', 'published', 'correct', 'ok', 'ready', 'received', 'posted'].includes(key)) {
     classes = 'bg-[#00A896]/15 text-[#005F6B]'
-  } else if (['pending', 'due', 'upcoming', 'open', 'live soon', 'live', 'in progress', 'draft', 're-exam allotted', 'on leave', 'missing'].includes(key)) {
+  } else if (['pending', 'due', 'upcoming', 'open', 'live soon', 'live', 'in progress', 'draft', 're-exam allotted', 'on leave', 'missing', 'submitted', 'generated', 'reviewed', 'payment pending'].includes(key)) {
     classes = 'bg-amber-100 text-amber-700'
   } else if (['late', 'absent', 'failed', 'fail', 'overdue', 'rejected', 'dropped', 'suspended', 'shortage'].includes(key)) {
     classes = 'bg-rose-100 text-rose-700'
-  } else if (['leave', 'partial', 'scheduled', 'refunded', 'cancelled', 'inactive', 'transferred', 'archived'].includes(key)) {
+  } else if (['leave', 'partial', 'partially paid', 'scheduled', 'refunded', 'cancelled', 'inactive', 'transferred', 'archived', 'superseded'].includes(key)) {
     classes = 'bg-sky-100 text-sky-700'
   } else if (['high'].includes(key)) {
     classes = 'bg-rose-100 text-rose-700'
