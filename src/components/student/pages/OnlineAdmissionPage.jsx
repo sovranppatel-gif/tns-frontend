@@ -23,7 +23,7 @@ import { getStudentSession, getStudentToken } from '../../../utils/studentAuth.j
 import { DateInput } from '../../shared/DateInput.jsx'
 import { Panel, PrimaryButton, SecondaryButton } from '../shared/StudentUI.jsx'
 
-const INSTITUTE_HINDI = 'टीएनएस आईटीआई एंड कंप्यूटर'
+const INSTITUTE_HINDI = 'Thakur Niranjan Singh I.T.I. & Computer'
 
 const AFFIDAVIT_RULES = [
   'मैं यह वचन देता / देती हूँ कि मेरे द्वारा जमा की गई फीस किसी भी परिस्थिति में वापस नहीं ली जावेगी।',

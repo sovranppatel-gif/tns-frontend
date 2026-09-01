@@ -1,6 +1,6 @@
-const INSTITUTE_NAME = 'GROW SKILLS TECH'
-const INSTITUTE_PLACE = 'IT TRAINING CENTER'
-const INSTITUTE_HINDI = 'ग्रो स्किल्स टेक'
+const INSTITUTE_NAME = 'THAKUR NIRANJAN SINGH I.T.I. & COMPUTER'
+const INSTITUTE_TAGLINE = 'ज्ञान से कौशल, कौशल से उज्ज्वल भविष्य'
+const INSTITUTE_DISPLAY_NAME = 'Thakur Niranjan Singh I.T.I. & Computer'
 
 const AFFIDAVIT_RULES = [
   'मैं यह वचन देता / देती हूँ कि मेरे द्वारा जमा की गई फीस किसी भी परिस्थिति में वापस नहीं ली जावेगी।',
@@ -51,7 +51,7 @@ function buildPrintHtml(row) {
     (d.termType || row.termType) && (d.termNumber || row.termNumber)
       ? `${d.termType || row.termType} ${d.termNumber || row.termNumber}`
       : ''
-  const institutionName = d.institutionName || INSTITUTE_HINDI
+  const institutionName = INSTITUTE_DISPLAY_NAME
   const admissionDate = formatDob(row.admissionDate || d.admissionDate)
   const contactNo = d.contactNo || row.phone || ''
   const email = row.email || ''
@@ -107,8 +107,21 @@ function buildPrintHtml(row) {
     }
     .sheet:last-child { page-break-after: auto; }
     .header { text-align: center; position: relative; padding-right: 110px; margin-bottom: 12px; }
-    .header h1 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 0.4px; }
-    .header .place { margin: 2px 0 8px; font-weight: 700; text-transform: uppercase; }
+    .header h1 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-weight: 800;
+    }
+    .header .tagline {
+      margin: 4px 0 8px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+      text-transform: none;
+    }
     .course-box {
       display: inline-block;
       border: 1px solid #000;
@@ -194,7 +207,7 @@ function buildPrintHtml(row) {
     <header class="header">
       <div class="photo">${photo}</div>
       <h1>${esc(INSTITUTE_NAME)}</h1>
-      <p class="place">${esc(INSTITUTE_PLACE)}</p>
+      <p class="tagline">${esc(INSTITUTE_TAGLINE)}</p>
       <div class="course-box">${line(course)}</div>
       ${universityName ? `<p class="session">${line(universityName)}</p>` : ''}
       <p class="session">Session ${line(session)}</p>

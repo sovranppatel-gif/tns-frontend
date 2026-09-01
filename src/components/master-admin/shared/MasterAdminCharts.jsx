@@ -171,3 +171,29 @@ export function MultiLineChart({ data, xKey = 'name', series = [], height = 240,
     </ResponsiveContainer>
   )
 }
+
+export function GroupedBarChart({
+  data,
+  xKey = 'name',
+  series = [],
+  height = 240,
+  isDark = false,
+  formatter,
+}) {
+  if (!data?.length || !series.length) return <EmptyChart height={height} isDark={isDark} />
+  const theme = chartTheme(isDark)
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} />
+        <XAxis dataKey={xKey} tick={{ fill: theme.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: theme.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={theme.tooltip} formatter={formatter} />
+        <Legend />
+        {series.map((s, i) => (
+          <Bar key={s.key} dataKey={s.key} name={s.label || s.key} fill={COLORS[i % COLORS.length]} radius={[6, 6, 0, 0]} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}

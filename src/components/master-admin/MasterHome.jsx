@@ -128,6 +128,10 @@ const QUICK = [
   { label: 'Batches', section: 'Batches' },
   { label: 'Online Exams', section: 'Online Exams' },
   { label: 'Enquiry', section: 'Enquiry Management' },
+  { label: 'Reports', section: 'Reports' },
+  { label: 'Analytics', section: 'Analytics' },
+  { label: 'Downloads', section: 'Downloads' },
+  { label: 'Backup', section: 'Backup' },
 ]
 
 export default function MasterHome({ onNavigate, isDark = false }) {

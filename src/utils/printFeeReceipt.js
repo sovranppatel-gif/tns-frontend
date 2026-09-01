@@ -1,5 +1,6 @@
-const INSTITUTE_NAME = 'GROW SKILLS TECH'
-const INSTITUTE_TAG = 'IT TRAINING CENTER'
+const INSTITUTE_NAME = 'THAKUR NIRANJAN SINGH I.T.I. & COMPUTER'
+const INSTITUTE_DISPLAY_NAME = 'Thakur Niranjan Singh I.T.I. & Computer'
+const INSTITUTE_TAG = 'ज्ञान से कौशल, कौशल से उज्ज्वल भविष्य'
 
 function esc(value) {
   return String(value ?? '')
@@ -176,46 +177,56 @@ function buildReceiptHtml(feeDetail, payment) {
       margin: 0;
       padding: 24px;
       font-family: "Segoe UI", Arial, sans-serif;
-      color: #0f172a;
+      color: #000;
       background: #fff;
     }
     .sheet {
       max-width: 780px;
       margin: 0 auto;
-      border: 2px solid #0f766e;
+      border: 2px solid #000;
       border-radius: 8px;
       overflow: hidden;
     }
     .header {
-      background: linear-gradient(90deg, #0f766e, #0d9488);
-      color: #fff;
+      background: #fff;
+      color: #000;
       padding: 18px 22px;
       display: flex;
       justify-content: space-between;
       gap: 16px;
       align-items: flex-start;
+      border-bottom: 2px solid #000;
     }
+    .brand { flex: 1; min-width: 0; }
     .brand h1 {
       margin: 0;
-      font-size: 22px;
-      letter-spacing: 0.04em;
+      font-size: 15px;
+      line-height: 1.25;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #000;
     }
     .brand p {
-      margin: 4px 0 0;
+      margin: 6px 0 0;
       font-size: 12px;
-      opacity: 0.92;
+      text-transform: none;
+      color: #000;
     }
     .receipt-meta {
       text-align: right;
       font-size: 12px;
       line-height: 1.5;
+      color: #000;
+      flex-shrink: 0;
     }
     .badge {
       display: inline-block;
       margin-top: 6px;
       padding: 3px 10px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.18);
+      border: 1px solid #000;
+      background: #fff;
+      color: #000;
       font-weight: 700;
       font-size: 11px;
       letter-spacing: 0.06em;
@@ -233,7 +244,7 @@ function buildReceiptHtml(feeDetail, payment) {
     .title-row h2 {
       margin: 0;
       font-size: 18px;
-      color: #0f766e;
+      color: #000;
     }
     .grid {
       display: grid;
@@ -246,17 +257,17 @@ function buildReceiptHtml(feeDetail, payment) {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #64748b;
+      color: #000;
       margin-bottom: 2px;
     }
     .field div {
       font-size: 14px;
       font-weight: 600;
-      color: #0f172a;
+      color: #000;
     }
     .amount-box {
-      border: 1px solid #99f6e4;
-      background: #f0fdfa;
+      border: 1px solid #000;
+      background: #fff;
       border-radius: 8px;
       padding: 14px 16px;
       margin-bottom: 16px;
@@ -265,18 +276,18 @@ function buildReceiptHtml(feeDetail, payment) {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #0f766e;
+      color: #000;
       margin-bottom: 4px;
     }
     .amount-box .value {
       font-size: 28px;
       font-weight: 800;
-      color: #115e59;
+      color: #000;
     }
     .amount-box .words {
       margin-top: 6px;
       font-size: 12px;
-      color: #334155;
+      color: #000;
       font-style: italic;
     }
     table {
@@ -292,12 +303,13 @@ function buildReceiptHtml(feeDetail, payment) {
     }
     th {
       background: #f8fafc;
-      color: #475569;
+      color: #000;
       font-weight: 600;
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
+    td { color: #000; }
     .summary {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -305,7 +317,7 @@ function buildReceiptHtml(feeDetail, payment) {
       margin-bottom: 22px;
     }
     .summary .card {
-      border: 1px solid #e2e8f0;
+      border: 1px solid #000;
       border-radius: 8px;
       padding: 10px 12px;
       background: #fff;
@@ -313,18 +325,18 @@ function buildReceiptHtml(feeDetail, payment) {
     .summary .card span {
       display: block;
       font-size: 11px;
-      color: #64748b;
+      color: #000;
       margin-bottom: 2px;
     }
     .summary .card strong {
       font-size: 15px;
-      color: #0f172a;
+      color: #000;
     }
     .note {
       font-size: 12px;
-      color: #475569;
-      background: #f8fafc;
-      border: 1px dashed #cbd5e1;
+      color: #000;
+      background: #fff;
+      border: 1px dashed #000;
       border-radius: 6px;
       padding: 10px 12px;
       margin-bottom: 22px;
@@ -338,14 +350,14 @@ function buildReceiptHtml(feeDetail, payment) {
     .sign {
       text-align: center;
       padding-top: 36px;
-      border-top: 1px solid #94a3b8;
+      border-top: 1px solid #000;
       font-size: 12px;
-      color: #475569;
+      color: #000;
     }
     .footer {
       margin-top: 18px;
       font-size: 11px;
-      color: #64748b;
+      color: #000;
       text-align: center;
     }
     @media print {
@@ -371,7 +383,7 @@ function buildReceiptHtml(feeDetail, payment) {
     <div class="body">
       <div class="title-row">
         <h2>Payment Receipt</h2>
-        <div style="font-size:12px;color:#64748b;">Keep this for your records</div>
+        <div style="font-size:12px;color:#000;">Keep this for your records</div>
       </div>
 
       <div class="grid">
@@ -431,11 +443,11 @@ function buildReceiptHtml(feeDetail, payment) {
 
       <div class="signatures">
         <div class="sign">Student / Guardian Signature</div>
-        <div class="sign">Authorized Signatory<br/>${esc(INSTITUTE_NAME)}</div>
+        <div class="sign">Authorized Signatory<br/>${esc(INSTITUTE_DISPLAY_NAME)}</div>
       </div>
 
       <div class="footer">
-        This is a computer-generated fee receipt from ${esc(INSTITUTE_NAME)}. For queries contact the accounts desk.
+        This is a computer-generated fee receipt from ${esc(INSTITUTE_DISPLAY_NAME)}. For queries contact the accounts desk.
       </div>
     </div>
   </div>
@@ -575,31 +587,11 @@ function buildFeeScheduleHtml(feeDetail) {
     minute: '2-digit',
   })
   const fileTitle = buildFeeScheduleFileName(feeDetail, 'pdf').replace(/\.pdf$/i, '')
-  const installments = feeDetail?.installments || []
   const payments = [...(feeDetail?.payments || [])].sort((a, b) => {
     const ta = new Date(a.dateRaw || a.date).getTime() || 0
     const tb = new Date(b.dateRaw || b.date).getTime() || 0
     return ta - tb
   })
-  const installmentRows = installments.length
-    ? installments
-        .map(
-          (ins) => `<tr>
-            <td>
-              <strong>${line(ins.label)}</strong>
-              <div class="muted">${line(ins.category)}</div>
-            </td>
-            <td>${line(ins.amountLabel || formatINR(ins.amount))}</td>
-            <td>${line(ins.paidLabel || formatINR(ins.paid))}</td>
-            <td>${line(ins.dueLabel || formatINR(ins.due))}</td>
-            <td>${line(ins.dueDate)}</td>
-            <td>${line(ins.paidDate)}</td>
-            <td>${line(ins.status)}</td>
-          </tr>`,
-        )
-        .join('')
-    : `<tr><td colspan="7" class="empty">No installments found.</td></tr>`
-
   const paymentRows = payments.length
     ? payments
         .map(
@@ -626,7 +618,7 @@ function buildFeeScheduleHtml(feeDetail) {
       margin: 0;
       padding: 24px;
       font-family: "Segoe UI", Arial, sans-serif;
-      color: #0f172a;
+      color: #000;
       background: #fff;
     }
     .sheet { max-width: 900px; margin: 0 auto; }
@@ -636,25 +628,41 @@ function buildFeeScheduleHtml(feeDetail) {
       align-items: flex-start;
       gap: 16px;
       padding: 16px 18px;
+      border: 2px solid #000;
       border-radius: 10px;
-      background: linear-gradient(90deg, #FF5E14, #008C95);
-      color: #fff;
+      background: #fff;
+      color: #000;
     }
-    .brand h1 { margin: 0; font-size: 22px; letter-spacing: 0.04em; }
-    .brand p { margin: 4px 0 0; font-size: 12px; opacity: 0.92; }
-    .meta { text-align: right; font-size: 12px; line-height: 1.5; }
+    .brand { flex: 1; min-width: 0; }
+    .brand h1 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #000;
+    }
+    .brand p {
+      margin: 6px 0 0;
+      font-size: 12px;
+      text-transform: none;
+      color: #000;
+    }
+    .meta { text-align: right; font-size: 12px; line-height: 1.5; color: #000; flex-shrink: 0; }
     .badge {
       display: inline-block;
       margin-top: 6px;
       padding: 3px 10px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.18);
+      border: 1px solid #000;
+      background: #fff;
+      color: #000;
       font-weight: 700;
       font-size: 11px;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    h2 { margin: 22px 0 10px; font-size: 16px; color: #0f766e; }
+    h2 { margin: 22px 0 10px; font-size: 16px; color: #000; }
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -665,10 +673,10 @@ function buildFeeScheduleHtml(feeDetail) {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #64748b;
+      color: #000;
       margin-bottom: 2px;
     }
-    .field div { font-size: 14px; font-weight: 600; }
+    .field div { font-size: 14px; font-weight: 600; color: #000; }
     .totals {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -676,22 +684,21 @@ function buildFeeScheduleHtml(feeDetail) {
       margin-top: 16px;
     }
     .total-box {
-      border: 1px solid #e2e8f0;
+      border: 1px solid #000;
       border-radius: 8px;
       padding: 10px 12px;
-      background: #f8fafc;
+      background: #fff;
     }
-    .total-box span { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; }
-    .total-box strong { display: block; margin-top: 4px; font-size: 16px; }
+    .total-box span { display: block; font-size: 11px; color: #000; text-transform: uppercase; }
+    .total-box strong { display: block; margin-top: 4px; font-size: 16px; color: #000; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; vertical-align: top; }
-    th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; }
-    .muted { font-size: 11px; color: #64748b; font-weight: 400; }
-    .empty { text-align: center; color: #64748b; }
-    .footer { margin-top: 22px; font-size: 11px; color: #64748b; }
+    th, td { border: 1px solid #000; padding: 8px 10px; text-align: left; vertical-align: top; color: #000; }
+    th { background: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #000; }
+    .muted { font-size: 11px; color: #000; font-weight: 400; }
+    .empty { text-align: center; color: #000; }
+    .footer { margin-top: 22px; font-size: 11px; color: #000; }
     @media print {
-      body { padding: 0; }
-      .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { padding: 0; color: #000; }
     }
   </style>
 </head>
@@ -728,22 +735,6 @@ function buildFeeScheduleHtml(feeDetail) {
       <div class="total-box"><span>Due</span><strong>${esc(formatINR(feeDetail?.dueAmount))}</strong></div>
     </div>
 
-    <h2>Installments</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Installment</th>
-          <th>Amount</th>
-          <th>Paid</th>
-          <th>Due</th>
-          <th>Due date</th>
-          <th>Paid date</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>${installmentRows}</tbody>
-    </table>
-
     <h2>Payment history</h2>
     <table>
       <thead>
@@ -760,7 +751,7 @@ function buildFeeScheduleHtml(feeDetail) {
     </table>
 
     <div class="footer">
-      This is a computer-generated fee schedule from ${esc(INSTITUTE_NAME)}.
+      This is a computer-generated fee schedule from ${esc(INSTITUTE_DISPLAY_NAME)}.
     </div>
   </div>
 </body>

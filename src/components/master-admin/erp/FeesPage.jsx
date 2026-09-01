@@ -59,16 +59,18 @@ const emptyPaymentForm = {
 }
 
 const FEE_TYPE_OPTIONS = [
-  { id: 'INS-REG', label: 'Registration Fee' },
-  { id: 'INS-BAL', label: 'Tuition Fee' },
-  { id: 'INS-EXAM', label: 'Exam Fee' },
-  { id: 'INS-LIB', label: 'Library Fee' },
-  { id: 'INS-APP', label: 'Apps Fee' },
-  { id: 'INS-LAB', label: 'Lab Fee' },
-  { id: 'INS-HOST', label: 'Hostel Fee' },
-  { id: 'INS-TRANS', label: 'Transport Fee' },
-  { id: 'INS-OTHER', label: 'Other Fee' },
+  { id: 'INS-REG', label: 'Registration Fee', group: 'course' },
+  { id: 'INS-BAL', label: 'Tuition Fee', group: 'course' },
+  { id: 'INS-EXAM', label: 'Exam Fee', group: 'course' },
+  { id: 'INS-LIB', label: 'Library Fee', group: 'extra' },
+  { id: 'INS-APP', label: 'Apps Fee', group: 'extra' },
+  { id: 'INS-LAB', label: 'Lab Fee', group: 'extra' },
+  { id: 'INS-HOST', label: 'Hostel Fee', group: 'extra' },
+  { id: 'INS-TRANS', label: 'Transport Fee', group: 'extra' },
+  { id: 'INS-OTHER', label: 'Other Fee', group: 'extra' },
 ]
+
+const EXTRA_FEE_IDS = new Set(FEE_TYPE_OPTIONS.filter((o) => o.group === 'extra').map((o) => o.id))
 
 const emptyEditForm = {
   amount: '',
@@ -414,6 +416,29 @@ export default function FeesPage() {
     [detail],
   )
 
+  const feeBreakdown = useMemo(() => {
+    const installments = detail?.installments || []
+    let courseTotal = 0
+    let extraTotal = 0
+    for (const ins of installments) {
+      const amount = Number(ins.amount) || 0
+      const category = String(ins.category || '').trim().toLowerCase()
+      const isExtra =
+        EXTRA_FEE_IDS.has(ins.id) ||
+        ['library', 'apps', 'lab', 'hostel', 'transport', 'other'].includes(category)
+      if (isExtra) extraTotal += amount
+      else courseTotal += amount
+    }
+    if (!installments.length) {
+      courseTotal = Number(detail?.totalAmount) || 0
+    }
+    return {
+      courseTotal,
+      extraTotal,
+      combined: courseTotal + extraTotal,
+    }
+  }, [detail])
+
   const feeTypeOptions = useMemo(() => {
     const installments = detail?.installments || []
     return FEE_TYPE_OPTIONS.map((opt) => {
@@ -439,11 +464,12 @@ export default function FeesPage() {
     if (!id) return
     const opt = feeTypeOptions.find((o) => o.id === id || o.installmentId === id)
     const due = opt?.due || (typeof insOrId === 'object' ? insOrId?.due : 0)
+    const isExtra = EXTRA_FEE_IDS.has(opt?.id || id)
     setRecordMode('payment')
     setPaymentForm((prev) => ({
       ...prev,
       installmentId: opt?.id || id,
-      amount: due ? String(due) : prev.amount,
+      amount: due ? String(due) : isExtra ? '' : prev.amount,
     }))
   }
 
@@ -887,6 +913,15 @@ export default function FeesPage() {
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Category</p>
                   <p className="mt-0.5 font-semibold text-slate-800">{detail.category}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Total fee: {formatINR(feeBreakdown.courseTotal)}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Extra fee: {formatINR(feeBreakdown.extraTotal)}
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-800">
+                    Combined: {formatINR(feeBreakdown.combined)}
+                  </p>
                 </div>
               </div>
               <div className="mt-4">
@@ -1074,11 +1109,20 @@ export default function FeesPage() {
                               ? ' · Paid'
                               : opt.due
                                 ? ` · due ${opt.dueLabel}`
-                                : ''}
+                                : EXTRA_FEE_IDS.has(opt.id)
+                                  ? ' · extra'
+                                  : ''}
                           </option>
                         ))}
                       </select>
                     </label>
+                    {selectedFeeType ? (
+                      <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                        {EXTRA_FEE_IDS.has(selectedFeeType.id)
+                          ? `${selectedFeeType.label} course total ke upar alag add hogi. Course / tuition fee se deduct nahi hogi.`
+                          : `${selectedFeeType.label} course fee (courses mein decide) se deduct hogi.`}
+                      </p>
+                    ) : null}
                     <label className="block text-xs font-medium text-slate-600">
                       {recordMode === 'discount' ? 'Reason' : 'Note'}
                       <textarea
@@ -1127,6 +1171,7 @@ export default function FeesPage() {
               <div className="space-y-2">
                 {(detail.installments || []).map((ins) => {
                   const isReg = isRegistrationInstallment(ins)
+                  const isExtra = EXTRA_FEE_IDS.has(ins.id)
                   const unpaid = ins.status !== 'Paid' && Number(ins.due) > 0
                   return (
                     <div
@@ -1134,13 +1179,20 @@ export default function FeesPage() {
                       className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-2 rounded-lg border px-3 py-2.5 ${
                         isReg
                           ? 'border-[#008C95]/30 bg-[#008C95]/5'
-                          : 'border-slate-100 bg-slate-50/80'
+                          : isExtra
+                            ? 'border-amber-200 bg-amber-50/70'
+                            : 'border-slate-100 bg-slate-50/80'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-slate-900">{ins.label}</p>
                           <StatusBadge status={ins.status} />
+                          {isExtra ? (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                              Extra
+                            </span>
+                          ) : null}
                         </div>
                         <p className="mt-0.5 text-[11px] text-slate-400">{ins.category}</p>
                         <p className="mt-1.5 text-sm tabular-nums text-slate-700">

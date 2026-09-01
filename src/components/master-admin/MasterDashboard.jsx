@@ -35,6 +35,8 @@ import {
   FiClock,
   FiTag,
   FiArchive,
+  FiTrendingUp,
+  FiDownload,
 } from 'react-icons/fi'
 import { FaIdCard, FaVideo, FaBullhorn, FaTicketAlt } from 'react-icons/fa'
 import logo from '../../assets/tnslogo.png'
@@ -55,6 +57,10 @@ import AttendancePage from './erp/AttendancePage.jsx'
 import BatchesPage from './erp/BatchesPage.jsx'
 import StudentsPage from './erp/StudentsPage.jsx'
 import AuditLogsPage from './AuditLogsPage.jsx'
+import ReportsPage from './reports/ReportsPage.jsx'
+import AnalyticsPage from './analytics/AnalyticsPage.jsx'
+import DownloadsPage from './downloads/DownloadsPage.jsx'
+import BackupPage from './backup/BackupPage.jsx'
 import FacultyPage from './faculty/FacultyPage.jsx'
 import FacultyFormPage from './faculty/FacultyFormPage.jsx'
 import FacultyAssignmentsPage from './faculty/FacultyAssignmentsPage.jsx'
@@ -239,6 +245,8 @@ const itemIcon = {
   Announcements: FaBullhorn,
   Calendar: FiCalendar,
   Reports: FiFileText,
+  Analytics: FiTrendingUp,
+  Downloads: FiDownload,
   'Online Exams': FiEdit3,
   'Question Bank': FiHelpCircle,
   'Exam Papers': FiFileText,
@@ -450,6 +458,9 @@ export default function MasterDashboard() {
       setOpenSubmenus((prev) => new Set([...prev, 'Staff Management']))
       setOpenGroups((prev) => new Set([...prev, 'ADMISSIONS & PEOPLE']))
     }
+    if (activeSection === 'Reports' || activeSection === 'Analytics' || activeSection === 'Downloads' || activeSection === 'Backup' || activeSection === 'Audit Logs') {
+      setOpenGroups((prev) => new Set([...prev, 'INSIGHTS']))
+    }
   }, [activeSection])
 
   const filteredMenu = useMemo(() => {
@@ -533,6 +544,10 @@ export default function MasterDashboard() {
     if (activeSection === 'Staff' && staffId) return <StaffProfilePage staffId={staffId} />
     if (activeSection === 'Staff') return <StaffPage />
     if (activeSection === 'Time Table') return <FacultyTimetablePage />
+    if (activeSection === 'Reports') return <ReportsPage />
+    if (activeSection === 'Analytics') return <AnalyticsPage onNavigate={goTo} />
+    if (activeSection === 'Downloads') return <DownloadsPage onNavigate={goTo} />
+    if (activeSection === 'Backup') return <BackupPage onNavigate={goTo} />
     if (activeSection === 'Audit Logs') return <AuditLogsPage />
     if (activeSection === 'Online Exams') return <OnlineExamsPage />
     if (activeSection === 'Question Bank') return <QuestionBankPage />

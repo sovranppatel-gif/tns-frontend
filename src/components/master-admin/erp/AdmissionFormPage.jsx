@@ -17,7 +17,7 @@ import { DateInput } from '../../shared/DateInput.jsx'
 import { PrimaryButton, SecondaryButton } from '../shared/MasterAdminUI.jsx'
 import { card, inputFocus } from '../../../utils/masterAdminTheme.js'
 
-const INSTITUTE_HINDI = 'ग्रो स्किल्स टेक'
+const INSTITUTE_HINDI = 'Thakur Niranjan Singh I.T.I. & Computer'
 const INSTITUTE_UNIVERSITY_ID = 'institute-gst'
 
 const INSTITUTE_UNIVERSITY_OPTION = {
@@ -373,7 +373,10 @@ export default function AdmissionFormPage() {
           officeDate: d.officeDate || todayDisplay(),
           applicantDate: d.applicantDate || todayDisplay(),
           photoPreview: d.photoPreview || '',
-          institutionName: d.institutionName || INSTITUTE_HINDI,
+          institutionName:
+            /grow\s*skills|ग्रो\s*स्किल्स/i.test(String(d.institutionName || ''))
+              ? INSTITUTE_HINDI
+              : d.institutionName || INSTITUTE_HINDI,
           guardianName: d.guardianName || d.fatherName || '',
           guardianAddress: d.guardianAddress || d.permanentAddress || '',
           relation: d.relation || '',
