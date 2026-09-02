@@ -34,7 +34,7 @@ export function Field({ label, children }) {
 
 export function FilterBar({ children, onRefresh, extra }) {
   return (
-    <div className={`${card} flex flex-col gap-2 p-2.5`}>
+    <div className={`${card} finance-filter-bar flex flex-col gap-2 p-2.5`}>
       <div className="flex min-w-0 flex-wrap items-end gap-2">{children}</div>
       {extra}
     </div>
@@ -67,7 +67,7 @@ export function DateRangeFilters({ preset, from, to, onPreset, onFrom, onTo }) {
 export function ErrorBanner({ error }) {
   if (!error) return null
   return (
-    <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</div>
+    <div className="finance-error-banner rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</div>
   )
 }
 

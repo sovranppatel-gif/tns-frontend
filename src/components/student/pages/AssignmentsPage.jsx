@@ -1,6 +1,55 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, ClipboardList, Download, Upload } from 'lucide-react'
-import { useStudentLearning } from '../../../hooks/useStudentLearning.js'
+import { getStudentAssignments } from '../../../services/assignmentService.js'
+import { getStudentToken } from '../../../utils/studentAuth.js'
+import { studentMediaUrl } from '../../../services/studentClient.js'
+
+function downloadAssignment(assignment) {
+  const attachment = (assignment.assignmentId?.attachments || []).find((item) => {
+    const url = typeof item === 'string' ? item : item?.url || item?.path || item?.fileUrl || item?.downloadUrl
+    return Boolean(url)
+  })
+  const attachmentUrl = attachment
+    ? typeof attachment === 'string'
+      ? attachment
+      : attachment.url || attachment.path || attachment.fileUrl || attachment.downloadUrl
+    : ''
+
+  if (attachmentUrl) {
+    const link = document.createElement('a')
+    link.href = studentMediaUrl(attachmentUrl)
+    link.target = '_blank'
+    link.rel = 'noreferrer'
+    link.download = attachment.name || attachment.fileName || `${assignment.assignmentId.title}.file`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    return
+  }
+
+  const details = [
+    assignment.assignmentId.title,
+    '',
+    `Course: ${assignment.assignmentId.courseId?.name || '—'}`,
+    `Type: ${assignment.assignmentId.assignmentType || '—'}`,
+    `Total marks: ${assignment.assignmentId.totalMarks ?? '—'}`,
+    `Due: ${assignment.dueAt ? new Date(assignment.dueAt).toLocaleString('en-IN') : '—'}`,
+    '',
+    'Description',
+    assignment.assignmentId.description || 'No description provided.',
+    '',
+    'Instructions',
+    assignment.assignmentId.instructions || 'No additional instructions provided.',
+  ].join('\n')
+  const url = URL.createObjectURL(new Blob([details], { type: 'text/plain;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${assignment.assignmentId.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'assignment'}.txt`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 import {
   EmptyState,
   Panel,
@@ -13,9 +62,44 @@ import {
 } from '../shared/StudentUI.jsx'
 
 export default function AssignmentsPage() {
-  const { rows, loading, error } = useStudentLearning('assignments')
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All')
+
+  useEffect(() => {
+    const token = getStudentToken()
+    if (!token) {
+      setRows([])
+      setLoading(false)
+      return undefined
+    }
+    getStudentAssignments(token)
+      .then((data) => setRows((Array.isArray(data) ? data : []).filter((row) => row.assignmentId).map((row) => ({
+        ...row,
+        id: row._id,
+        title: row.assignmentId.title,
+        subject: row.assignmentId.subjectName || row.assignmentId.courseId?.name || 'Assignment',
+        dueDate: row.dueAt ? new Date(row.dueAt).toLocaleDateString('en-IN') : '—',
+        submittedDate: row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('en-IN') : '—',
+        marks: row.marksObtained == null ? '—' : `${row.marksObtained} / ${row.assignmentId.totalMarks}`,
+        progress: row.status === 'EVALUATED' ? 100 : row.submissionCount > 0 ? 60 : 0,
+        status: row.status === 'EVALUATED' ? 'Completed' : row.isLate ? 'Late' : 'Pending',
+      }))))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+    return undefined
+  }, [])
+
+  const retry = () => {
+    setError('')
+    setLoading(true)
+    const token = getStudentToken()
+    if (!token) { setLoading(false); return }
+    getStudentAssignments(token).then((data) => setRows((Array.isArray(data) ? data : []).filter((row) => row.assignmentId).map((row) => ({ ...row, id: row._id, title: row.assignmentId.title, subject: row.assignmentId.subjectName || row.assignmentId.courseId?.name || 'Assignment', dueDate: row.dueAt ? new Date(row.dueAt).toLocaleDateString('en-IN') : '—', submittedDate: row.submittedAt ? new Date(row.submittedAt).toLocaleDateString('en-IN') : '—', marks: row.marksObtained == null ? '—' : `${row.marksObtained} / ${row.assignmentId.totalMarks}`, progress: row.status === 'EVALUATED' ? 100 : row.submissionCount > 0 ? 60 : 0, status: row.status === 'EVALUATED' ? 'Completed' : row.isLate ? 'Late' : 'Pending' }))))
+      .catch((err) => setError(err.message)).finally(() => setLoading(false))
+  }
 
   const counts = useMemo(
     () => ({
@@ -56,7 +140,7 @@ export default function AssignmentsPage() {
         <StatCard label="Late" value={counts.late} icon={AlertTriangle} />
       </div>
 
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? <div className="flex flex-wrap items-center gap-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700"><span>{error}</span><button type="button" className="font-semibold underline" onClick={retry}>Retry</button></div> : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-[200px] flex-1">
@@ -116,9 +200,9 @@ export default function AssignmentsPage() {
                 <ProgressBar value={a.progress || 0} />
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <PrimaryButton>
+                <PrimaryButton type="button" onClick={() => downloadAssignment(a)}>
                   <Download size={14} />
-                  Download
+                  {a.assignmentId?.attachments?.length ? 'Download file' : 'Download brief'}
                 </PrimaryButton>
                 {a.status === 'Pending' ? (
                   <button

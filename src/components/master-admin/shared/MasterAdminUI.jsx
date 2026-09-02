@@ -30,7 +30,7 @@ export function PageToolbar({
   extraActions = null,
 }) {
   return (
-    <div className={`${card} flex flex-col gap-2 p-2.5`}>
+    <div className={`${card} finance-toolbar flex flex-col gap-2 p-2.5`}>
       <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <label className="flex h-10 w-full min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 sm:max-w-xs">
           <Search size={15} className="shrink-0 text-[#FF5E14]" />

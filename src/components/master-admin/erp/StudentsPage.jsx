@@ -3,14 +3,19 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CheckCircle2,
   Eye,
+  FileText,
   GraduationCap,
   MoreHorizontal,
   Pencil,
+  Plus,
   RefreshCw,
+  Trash2,
+  Upload,
   UserCog,
   UserMinus,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react'
 import {
   assignStudentBatch,
@@ -21,6 +26,8 @@ import {
   syncStudentsFromAdmissions,
   updateStudent,
   updateStudentStatus,
+  uploadStudentDocument,
+  uploadStudentPhoto,
 } from '../../../services/studentService.js'
 import { getUniversities } from '../../../services/universityService.js'
 import { getCourses } from '../../../services/courseService.js'
@@ -41,7 +48,8 @@ import {
   downloadCsv,
   useClientTable,
 } from '../shared/MasterAdminUI.jsx'
-import StudentProfilePage, { StudentPhoto } from './StudentProfilePage.jsx'
+import StudentProfilePage, { StudentPhoto, photoSrc } from './StudentProfilePage.jsx'
+import { API_URL } from '../../../utils/api.js'
 
 const exportColumns = [
   { key: 'studentId', label: 'Student ID' },
@@ -66,7 +74,96 @@ const STUDENT_STATUSES = [
   'Suspended',
 ]
 
+const EDU_DOC_ACCEPT =
+  'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif'
+
+const DEFAULT_DOCUMENT_TYPES = [
+  'Passport Photo',
+  'Aadhaar',
+  '10th Marksheet',
+  '12th Marksheet',
+  'Graduation Marksheet',
+  'Transfer Certificate',
+  'Migration Certificate',
+  'Caste Certificate',
+  'Domicile',
+  'Other',
+]
+
+function absoluteUploadUrl(url) {
+  if (!url) return ''
+  if (/^(data:|https?:|blob:)/i.test(url)) return url
+  return `${API_URL}${url.startsWith('/') ? url : `/${url}`}`
+}
+
+function toIsoDate(value) {
+  if (!value) return ''
+  const raw = String(value)
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function emptyEducation() {
+  return {
+    className: '',
+    board: '',
+    year: '',
+    rollNo: '',
+    percentage: '',
+    division: '',
+    documentUrl: '',
+    documentName: '',
+    documentUploading: false,
+    documentError: '',
+  }
+}
+
+function emptyIdentityDoc() {
+  return {
+    documentType: 'Aadhaar',
+    documentName: '',
+    documentUrl: '',
+    documentNumber: '',
+    verified: false,
+    uploading: false,
+    error: '',
+  }
+}
+
+function serializeEducation(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      className: String(row.className || '').trim(),
+      board: String(row.board || '').trim(),
+      year: String(row.year || '').trim(),
+      rollNo: String(row.rollNo || '').trim(),
+      percentage: String(row.percentage || '').trim(),
+      division: String(row.division || '').trim(),
+      documentUrl: String(row.documentUrl || '').trim(),
+      documentName: String(row.documentName || '').trim(),
+    }))
+    .filter((row) => row.className || row.board || row.documentUrl || row.rollNo)
+}
+
+function serializeDocuments(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((doc) => ({
+      ...(doc._id ? { _id: doc._id } : {}),
+      documentType: String(doc.documentType || 'Other').trim() || 'Other',
+      documentName: String(doc.documentName || '').trim(),
+      documentUrl: String(doc.documentUrl || '').trim(),
+      documentNumber: String(doc.documentNumber || '').trim(),
+      verified: Boolean(doc.verified),
+    }))
+    .filter((doc) => doc.documentUrl || doc.documentName || doc.documentNumber)
+}
+
 const inputClass =
+  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#00A896] focus:ring-2 focus:ring-[#00A896]/15'
+
+const areaClass =
   'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#00A896] focus:ring-2 focus:ring-[#00A896]/15'
 
 function Field({ label, required = false, children, className = '' }) {
@@ -124,13 +221,50 @@ function emptyForm() {
     termType: 'Semester',
     termNumber: '',
     status: 'Active',
+    admissionDate: '',
+    photo: '',
+    nameEnglish: '',
+    nameHindi: '',
+    fatherName: '',
+    motherName: '',
+    dateOfBirth: '',
+    gender: '',
+    category: '',
+    samagraId: '',
+    casteCertificateNo: '',
+    maritalStatus: '',
+    husbandName: '',
     mobile: '',
     alternateMobile: '',
     email: '',
+    permanentAddress: '',
+    correspondenceAddress: '',
+    village: '',
+    post: '',
+    tehsil: '',
+    district: '',
+    state: '',
+    pinCode: '',
+    guardianName: '',
+    relation: '',
+    guardianMobile: '',
+    guardianAddress: '',
+    education: [emptyEducation()],
+    documents: [],
+    admissionDetails: {},
   }
 }
 
 function mapStudentToForm(student) {
+  const address = student.address || {}
+  const guardian = student.guardian || {}
+  const education = Array.isArray(student.education) && student.education.length
+    ? student.education.map((row) => ({ ...emptyEducation(), ...row, documentUploading: false, documentError: '' }))
+    : [emptyEducation()]
+  const documents = Array.isArray(student.documents)
+    ? student.documents.map((doc) => ({ ...emptyIdentityDoc(), ...doc, uploading: false, error: '' }))
+    : []
+  const admissionDetails = student.admissionDetails || {}
   return {
     admissionMongoId: student.admissionMongoId || '',
     universityId: student.universityId || '',
@@ -140,9 +274,46 @@ function mapStudentToForm(student) {
     termType: student.currentTerm?.type || 'Semester',
     termNumber: student.currentTerm?.number || '',
     status: student.status || 'Active',
+    admissionDate: toIsoDate(student.admissionDate),
+    photo: student.photo || '',
+    nameEnglish: student.nameEnglish || '',
+    nameHindi: student.nameHindi || '',
+    fatherName: student.fatherName || '',
+    motherName: student.motherName || '',
+    dateOfBirth: student.dateOfBirth || '',
+    gender: student.gender || '',
+    category: student.category || '',
+    samagraId: student.samagraId || '',
+    casteCertificateNo: student.casteCertificateNo || '',
+    maritalStatus: student.maritalStatus || '',
+    husbandName: student.husbandName || '',
     mobile: student.contact?.mobile || student.mobile || '',
     alternateMobile: student.contact?.alternateMobile || '',
     email: student.contact?.email || student.email || '',
+    permanentAddress: address.permanent || '',
+    correspondenceAddress: address.correspondence || '',
+    village: address.village || '',
+    post: address.post || '',
+    tehsil: address.tehsil || '',
+    district: address.district || '',
+    state: address.state || '',
+    pinCode: address.pinCode || '',
+    guardianName: guardian.name || '',
+    relation: guardian.relation || '',
+    guardianMobile: guardian.mobile || '',
+    guardianAddress: guardian.address || '',
+    education,
+    documents,
+    admissionDetails: {
+      registrationNo: admissionDetails.registrationNo || student.admissionId || '',
+      officeRegistrationNo: admissionDetails.officeRegistrationNo || '',
+      totalFee: admissionDetails.totalFee || '',
+      institutionName: admissionDetails.institutionName || '',
+      officeDate: admissionDetails.officeDate || '',
+      applicantDate: admissionDetails.applicantDate || '',
+      mode: admissionDetails.mode || '',
+      counsellor: admissionDetails.counsellor || '',
+    },
   }
 }
 
@@ -383,7 +554,6 @@ export default function StudentsPage() {
       setForm(mapStudentToForm(full))
       setSelectedAdmission(null)
       setFormOpen(true)
-      setSearchParams({})
       window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
     } catch (err) {
       setError(err?.message || 'Unable to load student for edit')
@@ -433,6 +603,40 @@ export default function StudentsPage() {
         },
       }
       if (editingId) {
+        Object.assign(payload, {
+          nameEnglish: form.nameEnglish,
+          nameHindi: form.nameHindi,
+          fatherName: form.fatherName,
+          motherName: form.motherName,
+          dateOfBirth: form.dateOfBirth,
+          gender: form.gender,
+          category: form.category,
+          samagraId: form.samagraId,
+          casteCertificateNo: form.casteCertificateNo,
+          maritalStatus: form.maritalStatus,
+          husbandName: form.husbandName,
+          photo: form.photo,
+          admissionDate: form.admissionDate || undefined,
+          address: {
+            permanent: form.permanentAddress,
+            correspondence: form.correspondenceAddress,
+            village: form.village,
+            post: form.post,
+            tehsil: form.tehsil,
+            district: form.district,
+            state: form.state,
+            pinCode: form.pinCode,
+          },
+          guardian: {
+            name: form.guardianName,
+            relation: form.relation,
+            mobile: form.guardianMobile,
+            address: form.guardianAddress,
+          },
+          education: serializeEducation(form.education),
+          documents: serializeDocuments(form.documents),
+          admissionDetails: form.admissionDetails,
+        })
         await updateStudent(editingId, payload)
         setToast('Student updated')
       } else {
@@ -444,6 +648,10 @@ export default function StudentsPage() {
       }
       closeForm()
       await reload()
+      if (viewId) {
+        const entry = await getStudentById(viewId)
+        setProfile(entry)
+      }
     } catch (err) {
       setError(err?.message || 'Unable to save student')
     } finally {
@@ -558,6 +766,83 @@ export default function StudentsPage() {
       session: adm?.session || prev.session,
     }))
   }
+
+  const handleStudentPhoto = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      setError('')
+      const data = await uploadStudentPhoto(file)
+      setForm((prev) => ({ ...prev, photo: data.url || '' }))
+    } catch (err) {
+      setError(err?.message || 'Unable to upload photo')
+    }
+  }
+
+  const handleStudentDocument = async (index, event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setForm((prev) => ({
+      ...prev,
+      documents: prev.documents.map((doc, i) => i === index ? { ...doc, uploading: true, error: '' } : doc),
+    }))
+    try {
+      const data = await uploadStudentDocument(file)
+      setForm((prev) => ({
+        ...prev,
+        documents: prev.documents.map((doc, i) => i === index
+          ? { ...doc, documentUrl: data.url || '', documentName: data.name || file.name, uploading: false }
+          : doc),
+      }))
+    } catch (err) {
+      setForm((prev) => ({
+        ...prev,
+        documents: prev.documents.map((doc, i) => i === index ? { ...doc, uploading: false, error: err?.message || 'Upload failed' } : doc),
+      }))
+    }
+  }
+
+  const addStudentDocument = () => setForm((prev) => ({ ...prev, documents: [...prev.documents, emptyIdentityDoc()] }))
+  const patchStudentDocument = (index, patch) => setForm((prev) => ({
+    ...prev,
+    documents: prev.documents.map((doc, i) => i === index ? { ...doc, ...patch } : doc),
+  }))
+  const removeStudentDocument = (index) => setForm((prev) => ({
+    ...prev,
+    documents: prev.documents.filter((_, i) => i !== index),
+  }))
+
+  const handleStudentEducationDocument = async (index, event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setForm((prev) => ({
+      ...prev,
+      education: prev.education.map((row, i) => i === index ? { ...row, documentUploading: true, documentError: '' } : row),
+    }))
+    try {
+      const data = await uploadStudentDocument(file)
+      setForm((prev) => ({
+        ...prev,
+        education: prev.education.map((row, i) => i === index
+          ? { ...row, documentUrl: data.url || '', documentName: data.name || file.name, documentUploading: false }
+          : row),
+      }))
+    } catch (err) {
+      setForm((prev) => ({
+        ...prev,
+        education: prev.education.map((row, i) => i === index ? { ...row, documentUploading: false, documentError: err?.message || 'Upload failed' } : row),
+      }))
+    }
+  }
+
+  const addStudentEducation = () => setForm((prev) => ({ ...prev, education: [...prev.education, emptyEducation()] }))
+  const removeStudentEducation = (index) => setForm((prev) => ({
+    ...prev,
+    education: prev.education.length > 1 ? prev.education.filter((_, i) => i !== index) : prev.education,
+  }))
 
   const actionBtn =
     'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition'
@@ -679,6 +964,35 @@ export default function StudentsPage() {
     },
   ]
 
+  const studentFormPanel = formOpen ? (
+    <div ref={formRef}>
+      <StudentFormPanel
+        form={form}
+        setForm={setForm}
+        editingId={editingId}
+        saving={saving}
+        universities={universities}
+        courses={courses}
+        formBatches={formBatches}
+        formTerms={formTerms}
+        meta={meta}
+        selectedAdmission={selectedAdmission}
+        onAdmissionPick={onAdmissionPick}
+        onPhotoChange={handleStudentPhoto}
+        onDocumentChange={handleStudentDocument}
+        onDocumentPatch={patchStudentDocument}
+        onDocumentAdd={addStudentDocument}
+        onDocumentRemove={removeStudentDocument}
+        onEducationChange={handleStudentEducationDocument}
+        onEducationAdd={addStudentEducation}
+        onEducationRemove={removeStudentEducation}
+        onSave={handleSave}
+        onCancel={closeForm}
+        cancelLabel={viewId ? 'Back to profile' : 'Cancel'}
+      />
+    </div>
+  ) : null
+
   if (viewId) {
     return (
       <>
@@ -692,18 +1006,24 @@ export default function StudentsPage() {
             {error}
           </article>
         ) : null}
-        <StudentProfilePage
-          student={profile}
-          loading={profileLoading}
-          onBack={() => setSearchParams({})}
-          onEdit={() => profile && openEdit(profile)}
-          onAssignBatch={() => profile && openAssign(profile)}
-          onPrint={() => profile && handlePrint(profile)}
-          onIdCard={() => profile && goIdCard(profile)}
-          onViewFees={() => profile && goFees(profile)}
-          onViewAttendance={() => profile && goAttendance(profile)}
-          onViewResults={goResults}
-        />
+        {formOpen ? (
+          <section className="w-full min-w-0 space-y-3">
+            {studentFormPanel}
+          </section>
+        ) : (
+          <StudentProfilePage
+            student={profile}
+            loading={profileLoading}
+            onBack={() => setSearchParams({})}
+            onEdit={() => profile && openEdit(profile)}
+            onAssignBatch={() => profile && openAssign(profile)}
+            onPrint={() => profile && handlePrint(profile)}
+            onIdCard={() => profile && goIdCard(profile)}
+            onViewFees={() => profile && goFees(profile)}
+            onViewAttendance={() => profile && goAttendance(profile)}
+            onViewResults={goResults}
+          />
+        )}
         <Modal
           open={assignOpen}
           title="Assign Batch"
@@ -848,146 +1168,7 @@ export default function StudentsPage() {
         </select>
       </div>
 
-      {formOpen ? (
-        <div ref={formRef}>
-          <Panel title={editingId ? 'Edit Student' : 'Create Student from Admission'} className="p-3">
-            <div className="space-y-3">
-              {!editingId ? (
-                <FormSection title="Approved Admission">
-                  <Field label="Select admission" required>
-                    <select
-                      value={form.admissionMongoId}
-                      onChange={(e) => onAdmissionPick(e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="">Choose approved admission</option>
-                      {(meta.eligibleAdmissions || []).map((a) => (
-                        <option key={a._id} value={a._id}>
-                          {a.admissionId} — {a.applicant} ({a.course})
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  {selectedAdmission ? (
-                    <p className="text-xs text-slate-500">
-                      Personal, parent, contact and academic details will be copied from this admission. Student ID is generated on the server.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-500">
-                      No duplicate admission form. If the list is empty, approve an admission or use Sync from Admissions.
-                    </p>
-                  )}
-                </FormSection>
-              ) : null}
-
-              <FormSection title="Academic mapping">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  <Field label="University">
-                    <select
-                      value={form.universityId}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, universityId: e.target.value, courseId: '', batchId: '' }))
-                      }
-                      className={inputClass}
-                    >
-                      <option value="">Select university</option>
-                      {universities
-                        .filter((u) => u.status === 'Active' || String(u._id) === String(form.universityId))
-                        .map((u) => (
-                          <option key={u._id} value={u._id} disabled={u.status !== 'Active' && String(u._id) !== String(form.universityId)}>
-                            {u.shortName ? `${u.shortName} — ${u.name}` : u.name}
-                            {u.status !== 'Active' ? ' (inactive)' : ''}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
-                  <Field label="Course">
-                    <select
-                      value={form.courseId}
-                      onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value, batchId: '', termNumber: '' }))}
-                      className={inputClass}
-                    >
-                      <option value="">Select course</option>
-                      {courses
-                        .filter((c) => {
-                          if (form.universityId && String(c.universityId) !== String(form.universityId) && c.type !== 'Institute') {
-                            return String(c._id) === String(form.courseId)
-                          }
-                          return c.status === 'Active' || String(c._id) === String(form.courseId)
-                        })
-                        .map((c) => (
-                          <option key={c._id} value={c._id}>
-                            {c.code ? `${c.name} — ${c.code}` : c.name}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
-                  <Field label="Session">
-                    <input
-                      value={form.session}
-                      onChange={(e) => setForm((prev) => ({ ...prev, session: e.target.value }))}
-                      className={inputClass}
-                      placeholder="2026-2027"
-                    />
-                  </Field>
-                  <Field label="Batch">
-                    <select
-                      value={form.batchId}
-                      onChange={(e) => setForm((prev) => ({ ...prev, batchId: e.target.value }))}
-                      className={inputClass}
-                    >
-                      <option value="">Not assigned</option>
-                      {formBatches.map((b) => (
-                        <option key={b._id} value={b._id}>{b.name || b.batchId}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Current Term">
-                    <select
-                      value={form.termNumber}
-                      onChange={(e) => setForm((prev) => ({ ...prev, termNumber: e.target.value, termType: formTerms[0]?.type || prev.termType }))}
-                      className={inputClass}
-                    >
-                      <option value="">Select term</option>
-                      {formTerms.map((t) => (
-                        <option key={t.number} value={t.number}>{t.label}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Status">
-                    <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))} className={inputClass}>
-                      {STUDENT_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-              </FormSection>
-
-              <FormSection title="Contact updates">
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <Field label="Mobile">
-                    <input value={form.mobile} onChange={(e) => setForm((prev) => ({ ...prev, mobile: e.target.value }))} className={inputClass} />
-                  </Field>
-                  <Field label="Alternate mobile">
-                    <input value={form.alternateMobile} onChange={(e) => setForm((prev) => ({ ...prev, alternateMobile: e.target.value }))} className={inputClass} />
-                  </Field>
-                  <Field label="Email">
-                    <input value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} className={inputClass} />
-                  </Field>
-                </div>
-              </FormSection>
-
-              <div className="flex flex-wrap gap-2">
-                <PrimaryButton disabled={saving} onClick={handleSave}>
-                  {saving ? 'Saving…' : editingId ? 'Update Student' : 'Create Student'}
-                </PrimaryButton>
-                <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
-              </div>
-            </div>
-          </Panel>
-        </div>
-      ) : null}
+      {studentFormPanel}
 
       {loading ? (
         <p className="py-8 text-center text-sm text-slate-500">Loading students…</p>
@@ -1028,6 +1209,241 @@ export default function StudentsPage() {
         />
       </Modal>
     </section>
+  )
+}
+
+function StudentFormPanel({
+  form,
+  setForm,
+  editingId,
+  saving,
+  universities,
+  courses,
+  formBatches,
+  formTerms,
+  meta,
+  selectedAdmission,
+  onAdmissionPick,
+  onPhotoChange,
+  onDocumentChange,
+  onDocumentPatch,
+  onDocumentAdd,
+  onDocumentRemove,
+  onEducationChange,
+  onEducationAdd,
+  onEducationRemove,
+  onSave,
+  onCancel,
+  cancelLabel = 'Cancel',
+}) {
+  return (
+    <Panel title={editingId ? 'Edit Student' : 'Create Student from Admission'} className="p-3">
+      <div className="space-y-3">
+        {!editingId ? (
+          <FormSection title="Approved Admission">
+            <Field label="Select admission" required>
+              <select
+                value={form.admissionMongoId}
+                onChange={(e) => onAdmissionPick(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Choose approved admission</option>
+                {(meta.eligibleAdmissions || []).map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.admissionId} — {a.applicant} ({a.course})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {selectedAdmission ? (
+              <p className="text-xs text-slate-500">
+                Personal, parent, contact and academic details will be copied from this admission. Student ID is generated on the server.
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">
+                No duplicate admission form. If the list is empty, approve an admission or use Sync from Admissions.
+              </p>
+            )}
+          </FormSection>
+        ) : null}
+
+        <FormSection title="Academic mapping">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="University">
+              <select
+                value={form.universityId}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, universityId: e.target.value, courseId: '', batchId: '' }))
+                }
+                className={inputClass}
+              >
+                <option value="">Select university</option>
+                {universities
+                  .filter((u) => u.status === 'Active' || String(u._id) === String(form.universityId))
+                  .map((u) => (
+                    <option key={u._id} value={u._id} disabled={u.status !== 'Active' && String(u._id) !== String(form.universityId)}>
+                      {u.shortName ? `${u.shortName} — ${u.name}` : u.name}
+                      {u.status !== 'Active' ? ' (inactive)' : ''}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="Course">
+              <select
+                value={form.courseId}
+                onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value, batchId: '', termNumber: '' }))}
+                className={inputClass}
+              >
+                <option value="">Select course</option>
+                {courses
+                  .filter((c) => {
+                    if (form.universityId && String(c.universityId) !== String(form.universityId) && c.type !== 'Institute') {
+                      return String(c._id) === String(form.courseId)
+                    }
+                    return c.status === 'Active' || String(c._id) === String(form.courseId)
+                  })
+                  .map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.code ? `${c.name} — ${c.code}` : c.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="Session">
+              <input
+                value={form.session}
+                onChange={(e) => setForm((prev) => ({ ...prev, session: e.target.value }))}
+                className={inputClass}
+                placeholder="2026-2027"
+              />
+            </Field>
+            <Field label="Batch">
+              <select
+                value={form.batchId}
+                onChange={(e) => setForm((prev) => ({ ...prev, batchId: e.target.value }))}
+                className={inputClass}
+              >
+                <option value="">Not assigned</option>
+                {formBatches.map((b) => (
+                  <option key={b._id} value={b._id}>{b.name || b.batchId}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Current Term">
+              <select
+                value={form.termNumber}
+                onChange={(e) => setForm((prev) => ({ ...prev, termNumber: e.target.value, termType: formTerms[0]?.type || prev.termType }))}
+                className={inputClass}
+              >
+                <option value="">Select term</option>
+                {formTerms.map((t) => (
+                  <option key={t.number} value={t.number}>{t.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Status">
+              <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))} className={inputClass}>
+                {STUDENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection title="Contact updates">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Field label="Mobile">
+              <input value={form.mobile} onChange={(e) => setForm((prev) => ({ ...prev, mobile: e.target.value }))} className={inputClass} />
+            </Field>
+            <Field label="Alternate mobile">
+              <input value={form.alternateMobile} onChange={(e) => setForm((prev) => ({ ...prev, alternateMobile: e.target.value }))} className={inputClass} />
+            </Field>
+            <Field label="Email">
+              <input value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} className={inputClass} />
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection title="Applicant details">
+          <div className="mb-3 flex flex-wrap items-start gap-3">
+            <label className="flex h-28 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-white text-center text-xs text-slate-500">
+              {form.photo ? <img src={absoluteUploadUrl(form.photo)} alt="Student" className="h-full w-full object-cover" /> : <span>Passport Photo</span>}
+              <input type="file" accept="image/*" className="hidden" onChange={onPhotoChange} />
+            </label>
+            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ['nameEnglish', 'Name (English)'], ['nameHindi', 'Name (Hindi)'], ['fatherName', 'Father Name'],
+                ['motherName', 'Mother Name'], ['dateOfBirth', 'Date of Birth'], ['samagraId', 'Samagra ID'],
+                ['casteCertificateNo', 'Caste Certificate No.'],
+              ].map(([key, label]) => <Field key={key} label={label}><input type={key === 'dateOfBirth' ? 'date' : 'text'} value={form[key]} onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))} className={inputClass} /></Field>)}
+              <Field label="Gender"><select value={form.gender} onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))} className={inputClass}><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></Field>
+              <Field label="Category"><select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} className={inputClass}><option value="">Select</option>{['General', 'OBC', 'SC', 'ST', 'EWS', 'Other'].map((value) => <option key={value}>{value}</option>)}</select></Field>
+              <Field label="Marital Status"><select value={form.maritalStatus} onChange={(e) => setForm((prev) => ({ ...prev, maritalStatus: e.target.value }))} className={inputClass}><option value="">Select</option><option>Single</option><option>Unmarried</option><option>Married</option></select></Field>
+              {form.gender === 'Female' && form.maritalStatus === 'Married' ? <Field label="Husband Name"><input value={form.husbandName} onChange={(e) => setForm((prev) => ({ ...prev, husbandName: e.target.value }))} className={inputClass} /></Field> : null}
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Address">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ['permanentAddress', 'Permanent Address'], ['correspondenceAddress', 'Correspondence Address'], ['village', 'Village'],
+              ['post', 'Post'], ['tehsil', 'Tehsil'], ['district', 'District'], ['state', 'State'], ['pinCode', 'PIN Code'],
+            ].map(([key, label]) => <Field key={key} label={label} className={key.includes('Address') ? 'sm:col-span-2' : ''}><input value={form[key]} onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))} className={inputClass} /></Field>)}
+          </div>
+        </FormSection>
+
+        <FormSection title="Parent / Guardian">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {['guardianName', 'relation', 'guardianMobile', 'guardianAddress'].map((key) => <Field key={key} label={key === 'guardianName' ? 'Guardian Name' : key === 'guardianMobile' ? 'Guardian Mobile' : key === 'guardianAddress' ? 'Guardian Address' : 'Relation'}><input value={form[key]} onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))} className={inputClass} /></Field>)}
+          </div>
+        </FormSection>
+
+        <FormSection title="Admission / Office details">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ['registrationNo', 'Admission / Registration No.'], ['officeRegistrationNo', 'Office Registration No.'],
+              ['totalFee', 'Total Fee'], ['institutionName', 'Institution'], ['officeDate', 'Office Date'],
+              ['applicantDate', 'Applicant Date'], ['mode', 'Mode'], ['counsellor', 'Counsellor'],
+            ].map(([key, label]) => <Field key={key} label={label}><input value={form.admissionDetails?.[key] || ''} onChange={(e) => setForm((prev) => ({ ...prev, admissionDetails: { ...prev.admissionDetails, [key]: e.target.value } }))} className={inputClass} /></Field>)}
+          </div>
+        </FormSection>
+
+        <FormSection title="Educational qualification">
+          <button type="button" onClick={onEducationAdd} className="mb-2 rounded-lg border border-[#008C95]/30 px-3 py-2 text-xs font-semibold text-[#008C95]">+ Add qualification</button>
+          {form.education.map((row, index) => <div key={`education-${index}`} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-2 sm:grid-cols-2 lg:grid-cols-4">
+            {['className', 'board', 'year', 'rollNo', 'percentage', 'division'].map((key) => <Field key={key} label={key === 'className' ? 'Class' : key === 'rollNo' ? 'Roll No.' : key}><input value={row[key]} onChange={(e) => setForm((prev) => ({ ...prev, education: prev.education.map((item, i) => i === index ? { ...item, [key]: e.target.value } : item) }))} className={inputClass} /></Field>)}
+            <label className="flex items-end"><span className="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-lg bg-[#008C95] px-2 text-xs font-semibold text-white">{row.documentUploading ? 'Uploading…' : 'Upload marksheet'}<input type="file" accept={EDU_DOC_ACCEPT} className="hidden" disabled={row.documentUploading} onChange={(e) => onEducationChange(index, e)} /></span></label>
+            {row.documentUrl ? <a href={absoluteUploadUrl(row.documentUrl)} target="_blank" rel="noreferrer" className="self-end text-sm font-semibold text-[#008C95]">View document</a> : null}
+            <button type="button" onClick={() => onEducationRemove(index)} className="self-end rounded-lg border border-rose-200 px-2 py-2 text-xs font-semibold text-rose-600">Remove</button>
+            {row.documentError ? <p className="text-xs text-rose-600 sm:col-span-2 lg:col-span-4">{row.documentError}</p> : null}
+          </div>)}
+        </FormSection>
+
+        <FormSection title="Documents">
+          <div className="space-y-2">
+            {form.documents.map((doc, index) => <div key={doc._id || `document-${index}`} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-2 sm:grid-cols-2 lg:grid-cols-5">
+              <Field label="Document type"><select value={doc.documentType} onChange={(e) => onDocumentPatch(index, { documentType: e.target.value })} className={inputClass}>{DEFAULT_DOCUMENT_TYPES.map((type) => <option key={type}>{type}</option>)}</select></Field>
+              <Field label="Document name"><input value={doc.documentName} onChange={(e) => onDocumentPatch(index, { documentName: e.target.value })} className={inputClass} /></Field>
+              <Field label="Document number"><input value={doc.documentNumber} onChange={(e) => onDocumentPatch(index, { documentNumber: e.target.value })} className={inputClass} /></Field>
+              <label className="flex items-end"><span className="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-lg bg-[#008C95] px-2 text-xs font-semibold text-white">{doc.uploading ? 'Uploading…' : 'Upload file'}<input type="file" accept={EDU_DOC_ACCEPT} className="hidden" disabled={doc.uploading} onChange={(e) => onDocumentChange(index, e)} /></span></label>
+              <button type="button" onClick={() => onDocumentRemove(index)} className="self-end rounded-lg border border-rose-200 px-2 py-2 text-xs font-semibold text-rose-600">Remove</button>
+              {doc.documentUrl ? <a href={absoluteUploadUrl(doc.documentUrl)} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#008C95]">{doc.documentName || 'View uploaded document'}</a> : null}
+              {doc.error ? <p className="text-xs text-rose-600 sm:col-span-2 lg:col-span-5">{doc.error}</p> : null}
+            </div>)}
+            <button type="button" onClick={onDocumentAdd} className="rounded-lg border border-[#008C95]/30 px-3 py-2 text-xs font-semibold text-[#008C95]">+ Add document</button>
+          </div>
+        </FormSection>
+
+        <div className="flex flex-wrap gap-2">
+          <PrimaryButton disabled={saving} onClick={onSave}>
+            {saving ? 'Saving…' : editingId ? 'Update Student' : 'Create Student'}
+          </PrimaryButton>
+          <SecondaryButton onClick={onCancel}>{cancelLabel}</SecondaryButton>
+        </div>
+      </div>
+    </Panel>
   )
 }
 

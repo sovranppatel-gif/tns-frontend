@@ -144,6 +144,34 @@ export async function syncStudentsFromAdmissions() {
   }
 }
 
+export async function uploadStudentPhoto(file) {
+  if (!file) throw new Error('No photo selected')
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('Photo must be 2 MB or smaller')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  const token = getMasterAdminToken()
+
+  let response
+  try {
+    response = await fetch(buildUrl('/upload-photo'), {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    })
+  } catch {
+    throw new Error('Could not reach the server. Make sure the backend is running on port 3000.')
+  }
+
+  const data = await parseJson(response)
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Unable to upload photo')
+  }
+  return data.data
+}
+
 export async function uploadStudentDocument(file) {
   if (!file) throw new Error('No file selected')
   if (file.size > 400 * 1024) {

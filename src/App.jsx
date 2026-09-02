@@ -40,6 +40,7 @@ export default function App() {
         <Route path="/master-admin" element={<MasterAdminLogin />} />
         <Route path="/master-admin/fees/:feeStudentSlug" element={<MasterDashboard />} />
         <Route path="/master-admin/faculty/:facultyId" element={<MasterDashboard />} />
+        <Route path="/master-admin/assignments/:assignmentAction" element={<MasterDashboard />} />
         <Route path="/master-admin/staff/:staffId" element={<MasterDashboard />} />
         <Route path="/master-admin/:sectionSlug" element={<MasterDashboard />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -26,6 +26,11 @@ export const ROSE = '#F43F5E'
 
 const COLORS = [RED, NAVY, GOLD, EMERALD, AMBER, SKY, ROSE]
 
+function resolveDarkMode(isDark) {
+  if (typeof isDark === 'boolean') return isDark
+  return typeof document !== 'undefined' && document.querySelector('[data-theme="dark"]') !== null
+}
+
 function chartTheme(isDark) {
   return {
     tick: isDark ? '#94a3b8' : '#64748b',
@@ -42,9 +47,10 @@ function chartTheme(isDark) {
 }
 
 function EmptyChart({ height = 240, isDark = false }) {
+  const dark = resolveDarkMode(isDark)
   return (
     <div
-      className={`grid place-items-center rounded-lg text-xs ${isDark ? 'bg-white/5 text-white/40' : 'bg-slate-50 text-slate-400'}`}
+      className={`grid place-items-center rounded-lg text-xs ${dark ? 'bg-white/5 text-white/40' : 'bg-slate-50 text-slate-400'}`}
       style={{ height }}
     >
       No chart data yet
@@ -52,9 +58,9 @@ function EmptyChart({ height = 240, isDark = false }) {
   )
 }
 
-export function LineTrendChart({ data, xKey = 'name', yKey = 'value', yLabel = 'Value', height = 240, isDark = false }) {
+export function LineTrendChart({ data, xKey = 'name', yKey = 'value', yLabel = 'Value', height = 240, isDark }) {
   if (!data?.length) return <EmptyChart height={height} isDark={isDark} />
-  const theme = chartTheme(isDark)
+  const theme = chartTheme(resolveDarkMode(isDark))
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
@@ -74,11 +80,11 @@ export function AreaTrendChart({
   yKey = 'value',
   yLabel = 'Value',
   height = 240,
-  isDark = false,
+  isDark,
   fillId = 'tnsAreaFill',
 }) {
   if (!data?.length) return <EmptyChart height={height} isDark={isDark} />
-  const theme = chartTheme(isDark)
+  const theme = chartTheme(resolveDarkMode(isDark))
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
@@ -104,11 +110,11 @@ export function BarMetricChart({
   yKey = 'value',
   yLabel = 'Value',
   height = 240,
-  isDark = false,
+  isDark,
   formatter,
 }) {
   if (!data?.length) return <EmptyChart height={height} isDark={isDark} />
-  const theme = chartTheme(isDark)
+  const theme = chartTheme(resolveDarkMode(isDark))
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
@@ -126,10 +132,10 @@ export function BarMetricChart({
   )
 }
 
-export function DonutChart({ data, height = 240, isDark = false }) {
+export function DonutChart({ data, height = 240, isDark }) {
   const rows = (data || []).filter((d) => Number(d.value) > 0)
   if (!rows.length) return <EmptyChart height={height} isDark={isDark} />
-  const theme = chartTheme(isDark)
+  const theme = chartTheme(resolveDarkMode(isDark))
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
@@ -145,9 +151,9 @@ export function DonutChart({ data, height = 240, isDark = false }) {
   )
 }
 
-export function MultiLineChart({ data, xKey = 'name', series = [], height = 240, isDark = false, formatter }) {
+export function MultiLineChart({ data, xKey = 'name', series = [], height = 240, isDark, formatter }) {
   if (!data?.length || !series.length) return <EmptyChart height={height} isDark={isDark} />
-  const theme = chartTheme(isDark)
+  const theme = chartTheme(resolveDarkMode(isDark))
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
@@ -177,11 +183,11 @@ export function GroupedBarChart({
   xKey = 'name',
   series = [],
   height = 240,
-  isDark = false,
+  isDark,
   formatter,
 }) {
   if (!data?.length || !series.length) return <EmptyChart height={height} isDark={isDark} />
-  const theme = chartTheme(isDark)
+  const theme = chartTheme(resolveDarkMode(isDark))
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>

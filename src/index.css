@@ -100,6 +100,83 @@ video {
   }
 }
 
+/* Finance screens share a denser workspace surface than the public site. */
+.finance-section {
+  --finance-panel: #ffffff;
+  --finance-muted: #f8fafc;
+  --finance-border: #e2e8f0;
+  --finance-text: #0f172a;
+  --finance-copy: #64748b;
+  padding: 0.25rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(226, 232, 240, 0.55));
+}
+
+.finance-section .border-slate-200,
+.finance-section .border-slate-100 {
+  border-color: var(--finance-border) !important;
+}
+
+.finance-section .bg-white,
+.finance-section .bg-slate-50\/60,
+.finance-section .bg-slate-50\/80,
+.finance-section .bg-slate-50 {
+  background-color: var(--finance-panel) !important;
+}
+
+.finance-section .text-slate-900,
+.finance-section .text-slate-800,
+.finance-section .text-slate-700 {
+  color: var(--finance-text) !important;
+}
+
+.finance-section .text-slate-600,
+.finance-section .text-slate-500,
+.finance-section .text-slate-400 {
+  color: var(--finance-copy) !important;
+}
+
+.finance-section input,
+.finance-section select,
+.finance-section textarea {
+  border-color: var(--finance-border);
+  background-color: var(--finance-panel);
+  color: var(--finance-text);
+}
+
+.finance-section [data-theme='dark'] {
+  color-scheme: dark;
+}
+
+[data-theme='dark'] .finance-section {
+  --finance-panel: #0d2038;
+  --finance-muted: #102a47;
+  --finance-border: rgba(255, 255, 255, 0.13);
+  --finance-text: #f8fafc;
+  --finance-copy: #a8b6c8;
+  background: linear-gradient(135deg, rgba(13, 32, 56, 0.96), rgba(6, 16, 28, 0.92));
+}
+
+[data-theme='dark'] .finance-section .bg-slate-100,
+[data-theme='dark'] .finance-section .bg-slate-200\/80 {
+  background-color: var(--finance-muted) !important;
+}
+
+[data-theme='dark'] .finance-section .hover\:bg-slate-50\/80:hover,
+[data-theme='dark'] .finance-section .hover\:bg-slate-50:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme='dark'] .finance-section .text-white\/40,
+[data-theme='dark'] .finance-section .text-slate-400 {
+  color: #8fa3ba !important;
+}
+
+[data-theme='dark'] .finance-section + *,
+[data-theme='dark'] .finance-section .finance-error-banner {
+  color-scheme: dark;
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(28px);

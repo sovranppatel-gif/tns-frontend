@@ -24,6 +24,7 @@ export const MASTER_ADMIN_SECTIONS = [
   'Students',
   'Profile Requests',
   'ID Card Generate',
+  'Print Cards',
   'Faculty',
   'Add Faculty',
   'Faculty Assignments',
@@ -44,6 +45,7 @@ export const MASTER_ADMIN_SECTIONS = [
   'Attendance',
   'Time Table',
   'Assignments',
+  'Assignment Analytics',
   'Homework',
   'Study Materials',
   'Notes',
@@ -141,6 +143,8 @@ export function isStaffProfileId(staffId) {
 }
 
 export function masterAdminPath(section = 'Dashboard') {
+  if (section === 'Create Assignment') return '/master-admin/assignments/create'
+  if (section === 'Assignment Analytics') return '/master-admin/assignments/analytics'
   if (section === 'Faculty Assignments') return '/master-admin/faculty/assignments'
   if (section === 'Add Faculty') return '/master-admin/faculty/new'
   if (section === 'Staff') return '/master-admin/staff'

@@ -185,7 +185,7 @@ export default function IncomePage() {
   ]
 
   return (
-    <section className="space-y-3">
+    <section className="finance-section space-y-3">
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
       <ErrorBanner error={error} />
       <Toast text={toast} />

@@ -49,6 +49,7 @@ import { getModuleConfig, notifications as notifSeed } from '../../data/masterAd
 import { ModulePage } from './MasterAdminUI'
 import MasterHome from './MasterHome'
 import { CctvPage, CmsPage, IdCardPage } from './SpecialPages'
+import PrintCardsPage from './id-card/PrintCardsPage.jsx'
 import AdmissionsPage from './erp/AdmissionsPage.jsx'
 import AdmissionFormPage from './erp/AdmissionFormPage.jsx'
 import UniversitiesPage from './erp/UniversitiesPage.jsx'
@@ -87,6 +88,8 @@ import QuestionBankPage from './exams/QuestionBankPage.jsx'
 import ExamPapersPage from './exams/ExamPapersPage.jsx'
 import ExamSchedulePage from './exams/ExamSchedulePage.jsx'
 import ExamResultsPage from './exams/ExamResultsPage.jsx'
+import AssignmentsPage from './assignments/AssignmentsPage.jsx'
+import AssignmentDetailPage from './assignments/AssignmentDetailPage.jsx'
 import { logoutMasterAdmin } from '../../services/activityLogService.js'
 
 const LANDING_CMS = ['Hero CMS', 'About CMS', 'Courses CMS', 'Gallery CMS', 'Contact CMS']
@@ -115,6 +118,7 @@ const sideMenu = [
       'Students',
       'Profile Requests',
       'ID Card Generate',
+      'Print Cards',
       {
         label: 'Faculty Management',
         children: ['Faculty', 'Add Faculty', 'Faculty Assignments', 'Time Table'],
@@ -160,7 +164,10 @@ const sideMenu = [
       'Classes',
       'Attendance',
       'Time Table',
-      'Assignments',
+      {
+        label: 'Assignment Management',
+        children: ['Assignments', 'Create Assignment', 'Assignment Analytics'],
+      },
       'Homework',
       'Study Materials',
       'Notes',
@@ -224,6 +231,7 @@ const itemIcon = {
   Students: FiUsers,
   'Profile Requests': FiUserCheck,
   'ID Card Generate': FaIdCard,
+  'Print Cards': FaIdCard,
   Faculty: FiUser,
   'Add Faculty': FiUserPlus,
   'Faculty Management': FiUsers,
@@ -261,6 +269,10 @@ const itemIcon = {
   Analytics: FiTrendingUp,
   Downloads: FiDownload,
   'Online Exams': FiEdit3,
+  'Assignment Management': FiClipboard,
+  Assignments: FiClipboard,
+  'Create Assignment': FiEdit3,
+  'Assignment Analytics': FiTrendingUp,
   'Question Bank': FiHelpCircle,
   'Exam Papers': FiFileText,
   'Exam Schedule': FiCalendar,
@@ -361,11 +373,14 @@ function SidebarGroupLabel({ collapsed, dividerClass, labelClass, group, isOpen,
 
 export default function MasterDashboard() {
   const navigate = useNavigate()
-  const { sectionSlug, feeStudentSlug, facultyId, staffId } = useParams()
+  const { sectionSlug, feeStudentSlug, facultyId, staffId, assignmentAction } = useParams()
   const session = getMasterAdminSession()
 
   const activeSection = useMemo(() => {
     if (feeStudentSlug) return 'Fees'
+    if (assignmentAction === 'create') return 'Create Assignment'
+    if (assignmentAction === 'analytics') return 'Assignment Analytics'
+    if (assignmentAction) return 'Assignment Details'
     if (facultyId === 'assignments') return 'Faculty Assignments'
     if (facultyId === 'new') return 'Add Faculty'
     if (facultyId) return 'Faculty'
@@ -374,7 +389,7 @@ export default function MasterDashboard() {
     const fromUrl = slugToSection(sectionSlug)
     if (sectionSlug && !fromUrl) return 'Dashboard'
     return fromUrl || 'Dashboard'
-  }, [sectionSlug, feeStudentSlug, facultyId, staffId])
+  }, [sectionSlug, feeStudentSlug, facultyId, staffId, assignmentAction])
 
   const pageTitle = useMemo(() => {
     if (facultyId && facultyId !== 'assignments' && facultyId !== 'new') return 'Faculty Profile'
@@ -382,6 +397,8 @@ export default function MasterDashboard() {
     if (activeSection === 'Faculty') return 'Faculty Management'
     if (activeSection === 'Add Faculty') return 'Add Faculty'
     if (activeSection === 'Faculty Assignments') return 'Faculty Assignments'
+    if (activeSection === 'Create Assignment') return 'Create Assignment'
+    if (activeSection === 'Assignment Analytics') return 'Assignment Analytics'
     if (activeSection === 'Time Table') return 'Timetable'
     if (activeSection === 'Staff') return 'Staff Directory'
     if (activeSection === 'Add Staff') return 'Add Staff'
@@ -471,6 +488,10 @@ export default function MasterDashboard() {
       setOpenSubmenus((prev) => new Set([...prev, 'Staff Management']))
       setOpenGroups((prev) => new Set([...prev, 'ADMISSIONS & PEOPLE']))
     }
+    if (activeSection === 'Assignments' || activeSection === 'Create Assignment' || activeSection === 'Assignment Analytics') {
+      setOpenSubmenus((prev) => new Set([...prev, 'Assignment Management']))
+      setOpenGroups((prev) => new Set([...prev, 'ACADEMICS']))
+    }
     if (activeSection === 'Reports' || activeSection === 'Analytics' || activeSection === 'Downloads' || activeSection === 'Backup' || activeSection === 'Audit Logs') {
       setOpenGroups((prev) => new Set([...prev, 'INSIGHTS']))
     }
@@ -547,6 +568,7 @@ export default function MasterDashboard() {
     }
     if (activeSection === 'CCTV Cameras') return <CctvPage />
     if (activeSection === 'ID Card Generate') return <IdCardPage />
+    if (activeSection === 'Print Cards') return <PrintCardsPage />
     if (activeSection === 'Admissions') return <AdmissionsPage />
     if (activeSection === 'New Admission') return <AdmissionFormPage />
     if (activeSection === 'Universities') return <UniversitiesPage />
@@ -559,6 +581,10 @@ export default function MasterDashboard() {
     if (activeSection === 'Payroll') return <PayrollPage />
     if (activeSection === 'Payments') return <PaymentsPage />
     if (activeSection === 'Attendance') return <AttendancePage />
+    if (activeSection === 'Assignments') return <AssignmentsPage />
+    if (activeSection === 'Create Assignment') return <AssignmentsPage create />
+    if (activeSection === 'Assignment Analytics') return <AssignmentsPage />
+    if (activeSection === 'Assignment Details') return <AssignmentDetailPage assignmentId={assignmentAction} />
     if (activeSection === 'Batches') return <BatchesPage />
     if (activeSection === 'Students') return <StudentsPage />
     if (activeSection === 'Profile Requests') return <ProfileRequestsPage />
@@ -714,7 +740,7 @@ export default function MasterDashboard() {
           </div>
         </aside>
 
-        <main className="min-h-screen w-full min-w-0 px-2 pt-0 pb-2 sm:px-3 sm:pb-3 lg:h-screen lg:overflow-y-auto lg:px-3 lg:pb-3">
+        <main data-theme={theme} className="min-h-screen w-full min-w-0 px-2 pt-0 pb-2 sm:px-3 sm:pb-3 lg:h-screen lg:overflow-y-auto lg:px-3 lg:pb-3">
           <div className={`sticky top-0 z-30 -mx-2 mb-3 flex items-center gap-2 border-b px-2 py-2 backdrop-blur-xl sm:-mx-3 sm:px-3 lg:-mx-3 lg:px-3 ${shell.mobileBar}`}>
             <button type="button" className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border lg:hidden ${shell.iconBtn}`} onClick={() => setSidebarOpen(true)}>
               <FiMenu />
