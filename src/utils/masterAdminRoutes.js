@@ -22,6 +22,7 @@ export const MASTER_ADMIN_SECTIONS = [
   'New Admission',
   'Universities',
   'Students',
+  'Profile Requests',
   'ID Card Generate',
   'Faculty',
   'Add Faculty',

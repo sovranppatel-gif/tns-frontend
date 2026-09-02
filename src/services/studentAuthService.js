@@ -131,7 +131,34 @@ export async function getStudentMe(token) {
 }
 
 /**
- * PATCH /api/students/auth/me — update own profile
+ * POST /api/students/auth/avatar — upload profile photo (pending until admin approves)
+ */
+export async function uploadStudentAvatar(token, file) {
+  if (!file) throw new Error("No photo selected");
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("Photo must be 2 MB or smaller");
+  }
+  const formData = new FormData();
+  formData.append("file", file);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+  try {
+    const res = await fetch(`${API_URL}/api/students/auth/avatar`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+      signal: controller.signal,
+    });
+    return await parseJson(res);
+  } catch (err) {
+    throw new Error(friendlyNetworkError(err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * PATCH /api/students/auth/me — submit personal details for admin approval
  */
 export async function updateStudentProfile(token, payload) {
   return authFetch("/api/students/auth/me", {

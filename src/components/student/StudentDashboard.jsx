@@ -238,6 +238,7 @@ function StudentsDashboardInner() {
   const [search, setSearch] = useState('')
   const [notifications, setNotifications] = useState([])
   const [headerProfile, setHeaderProfile] = useState(null)
+  const [profileRefreshKey, setProfileRefreshKey] = useState(0)
   const cachedAccess = readAccessCache(session?.email)
   const [admissionApproved, setAdmissionApproved] = useState(() => Boolean(cachedAccess?.approved))
   const [admissionStatus, setAdmissionStatus] = useState(() => cachedAccess?.status || '')
@@ -326,8 +327,13 @@ function StudentsDashboardInner() {
   }, [reloadNotifications])
 
   useEffect(() => {
+    const id = window.setInterval(reloadNotifications, 15000)
+    return () => window.clearInterval(id)
+  }, [reloadNotifications])
+
+  useEffect(() => {
     if (!displayEmail) return undefined
-    return subscribeStudentNotifications({ email: displayEmail }, (incoming) => {
+    return subscribeStudentNotifications({ email: displayEmail, userId: session?.id }, (incoming) => {
       if (!incoming?.id) return
       setNotifications((prev) => {
         if (prev.some((n) => n.id === incoming.id)) return prev
@@ -339,15 +345,27 @@ function StudentsDashboardInner() {
       const text = `${incoming?.title || ''} ${incoming?.body || ''}`.toLowerCase()
       const looksLikeAdmissionUpdate =
         type === 'admission' ||
-        metaStatus === 'approved' ||
-        metaStatus === 'rejected' ||
+        ((metaStatus === 'approved' || metaStatus === 'rejected') && text.includes('admission')) ||
         text.includes('admission')
 
-      if (looksLikeAdmissionUpdate) {
+      if (looksLikeAdmissionUpdate && type !== 'profile') {
         reloadAdmissionAccess()
       }
+      if (type === 'profile' || text.includes('profile update')) {
+        const token = getStudentToken()
+        if (!token) return
+        getStudentMe(token)
+          .then((data) => {
+            if (data?.user) {
+              setHeaderProfile(data.user)
+              persistStudentSession({ token: data.token || token, user: data.user })
+              setProfileRefreshKey((n) => n + 1)
+            }
+          })
+          .catch(() => {})
+      }
     })
-  }, [displayEmail, reloadAdmissionAccess])
+  }, [displayEmail, reloadAdmissionAccess, session?.id])
 
   useEffect(() => {
     if (routeSlug && !slugToSection(routeSlug)) {
@@ -396,6 +414,10 @@ function StudentsDashboardInner() {
     }
     if (n.type === 'exam' && n.meta?.examId) {
       navigate(`${studentPath('Live Exams')}?exam=${n.meta.examId}&view=instructions`)
+      return
+    }
+    if (String(n.type || '').toLowerCase() === 'profile' || /profile/i.test(n.title || '')) {
+      goToSection('My Profile')
     }
   }
 
@@ -432,7 +454,7 @@ function StudentsDashboardInner() {
         unreadCount={unreadCount}
       />
     ),
-    'My Profile': <ProfilePage />,
+    'My Profile': <ProfilePage key={profileRefreshKey} />,
     'Online Admission': <OnlineAdmissionPage />,
     Attendance: <AttendancePage />,
     Courses: <CoursesPage />,

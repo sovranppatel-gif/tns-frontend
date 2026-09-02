@@ -61,10 +61,24 @@ export function subscribeStudentNotifications({ email, userId }, onNotification)
   s.on("connect", join);
 
   const handler = (notification) => onNotification?.(notification);
+  const profileHandler = (live) => {
+    onNotification?.({
+      id: live?.notificationId || `profile-${live?.userId || 'updated'}`,
+      type: "profile",
+      title:
+        live?.status === "Rejected"
+          ? "Profile update not approved"
+          : "Profile update approved",
+      body: "",
+      meta: live && typeof live === "object" ? live : {},
+    });
+  };
   s.on("notification:new", handler);
+  s.on("profile:updated", profileHandler);
 
   return () => {
     s.off("connect", join);
     s.off("notification:new", handler);
+    s.off("profile:updated", profileHandler);
   };
 }

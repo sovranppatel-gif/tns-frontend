@@ -171,3 +171,26 @@ export async function uploadStudentDocument(file) {
   }
   return data.data
 }
+
+export async function getProfileChangeRequests(params = {}) {
+  const data = await request(`/profile-changes${toQuery(params)}`)
+  return {
+    rows: Array.isArray(data.rows) ? data.rows : [],
+    stats: data.stats || {},
+  }
+}
+
+export async function approveProfileChange(id) {
+  const data = await request(`/profile-changes/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+  })
+  return data.entry
+}
+
+export async function rejectProfileChange(id, adminNote = '') {
+  const data = await request(`/profile-changes/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ adminNote }),
+  })
+  return data.entry
+}

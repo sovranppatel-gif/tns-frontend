@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Award, Check, Mail, MapPin, Pencil, Phone, User, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Award, Camera, Check, Mail, MapPin, Pencil, Phone, User, X } from 'lucide-react'
 import {
   getStudentMe,
   updateStudentProfile,
+  uploadStudentAvatar,
 } from '../../../services/studentAuthService.js'
 import { studentMediaUrl } from '../../../services/studentClient.js'
 import {
@@ -10,6 +11,7 @@ import {
   getStudentToken,
   persistStudentSession,
 } from '../../../utils/studentAuth.js'
+import { subscribeStudentNotifications } from '../../../utils/socket.js'
 import { DateInput } from '../../shared/DateInput.jsx'
 import { Panel, PrimaryButton, SecondaryButton, SkeletonBlock } from '../shared/StudentUI.jsx'
 
@@ -65,42 +67,43 @@ function blankProfile(session) {
   }
 }
 
-function toFormState(user) {
+function personalSource(user, pending) {
+  const proposed = pending?.status === 'Pending' ? pending.proposed : null
+  if (!proposed) return user
+  return {
+    ...user,
+    name: proposed.name ?? user?.name,
+    email: proposed.email ?? user?.email,
+    mobile: proposed.mobile ?? user?.mobile,
+    dob: proposed.dob ?? user?.dob,
+    gender: proposed.gender ?? user?.gender,
+    bloodGroup: proposed.bloodGroup ?? user?.bloodGroup,
+    avatar: proposed.avatar || user?.avatar,
+    address: { ...emptyAddress(), ...(proposed.address || user?.address || {}) },
+    parent: { ...emptyParent(), ...(proposed.parent || user?.parent || {}) },
+    emergency: { ...emptyEmergency(), ...(proposed.emergency || user?.emergency || {}) },
+  }
+}
+
+function toFormState(user, pending) {
+  const src = personalSource(user, pending)
   const mobile =
-    user?.mobile ||
-    String(user?.phone || '')
+    src?.mobile ||
+    String(src?.phone || '')
       .replace(/\D/g, '')
       .slice(-10) ||
     ''
   return {
-    name: user?.name || '',
+    name: src?.name || '',
+    email: src?.email || '',
     mobile,
-    dob: user?.dob || '',
-    gender: user?.gender || '',
-    bloodGroup: user?.bloodGroup || '',
-    batch: user?.batch || '',
-    course: user?.course || '',
-    semester: user?.semester || '',
-    rollNo: user?.rollNo || '',
-    enrollmentDate: user?.enrollmentDate || '',
-    trainer: user?.trainer || '',
-    trainerEmail: user?.trainerEmail || '',
-    address: { ...emptyAddress(), ...(user?.address || {}) },
-    parent: { ...emptyParent(), ...(user?.parent || {}) },
-    emergency: { ...emptyEmergency(), ...(user?.emergency || {}) },
-    education:
-      Array.isArray(user?.education) && user.education.length
-        ? user.education.map((e) => ({
-            level: e.level || '',
-            institute: e.institute || '',
-            year: e.year || '',
-            percentage: e.percentage || '',
-          }))
-        : [{ level: '', institute: '', year: '', percentage: '' }],
-    skillsText: Array.isArray(user?.skills) ? user.skills.join(', ') : '',
-    achievementsText: Array.isArray(user?.achievements)
-      ? user.achievements.join('\n')
-      : '',
+    dob: src?.dob || '',
+    gender: src?.gender || '',
+    bloodGroup: src?.bloodGroup || '',
+    avatar: src?.avatar || '',
+    address: { ...emptyAddress(), ...(src?.address || {}) },
+    parent: { ...emptyParent(), ...(src?.parent || {}) },
+    emergency: { ...emptyEmergency(), ...(src?.emergency || {}) },
   }
 }
 
@@ -123,13 +126,33 @@ function DisplayValue({ value, placeholder = '—' }) {
 }
 
 export default function ProfilePage() {
+  const photoInputRef = useRef(null)
   const [profile, setProfile] = useState(() => blankProfile(getStudentSession()))
   const [form, setForm] = useState(() => toFormState(blankProfile(getStudentSession())))
+  const [pending, setPending] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const hadPendingRef = useRef(false)
+  const editingRef = useRef(false)
+  editingRef.current = editing
+
+  const applyProfilePayload = useCallback((data, { silent = false } = {}) => {
+    const token = getStudentToken()
+    const nextPending = data.pendingProfileChange || null
+    if (hadPendingRef.current && !nextPending && !editingRef.current) {
+      setSuccess('Admin ne aapki profile request review kar di hai.')
+    }
+    hadPendingRef.current = Boolean(nextPending)
+    setProfile(data.user)
+    setPending(nextPending)
+    if (!editingRef.current) setForm(toFormState(data.user, nextPending))
+    persistStudentSession({ token: data.token || token, user: data.user })
+    if (!silent) setError('')
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -146,9 +169,7 @@ export default function ProfilePage() {
       try {
         const data = await getStudentMe(token)
         if (cancelled) return
-        setProfile(data.user)
-        setForm(toFormState(data.user))
-        persistStudentSession({ token, user: data.user })
+        applyProfilePayload(data)
       } catch (err) {
         if (cancelled) return
         setError(err.message || 'Failed to load profile')
@@ -162,17 +183,47 @@ export default function ProfilePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [applyProfilePayload])
+
+  useEffect(() => {
+    if (!pending || editing) return undefined
+    const id = window.setInterval(async () => {
+      const token = getStudentToken()
+      if (!token) return
+      try {
+        const data = await getStudentMe(token)
+        applyProfilePayload(data, { silent: true })
+      } catch {
+        // keep current profile
+      }
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [applyProfilePayload, editing, pending])
+
+  useEffect(() => {
+    const session = getStudentSession()
+    return subscribeStudentNotifications(
+      { email: session?.email, userId: session?.id },
+      (incoming) => {
+        if (String(incoming?.type || '').toLowerCase() !== 'profile') return
+        const token = getStudentToken()
+        if (!token) return
+        getStudentMe(token)
+          .then((data) => applyProfilePayload(data, { silent: true }))
+          .catch(() => {})
+      },
+    )
+  }, [applyProfilePayload])
 
   function startEdit() {
-    setForm(toFormState(profile))
+    setForm(toFormState(profile, pending))
     setError('')
     setSuccess('')
     setEditing(true)
   }
 
   function cancelEdit() {
-    setForm(toFormState(profile))
+    setForm(toFormState(profile, pending))
     setError('')
     setEditing(false)
   }
@@ -188,33 +239,25 @@ export default function ProfilePage() {
     }))
   }
 
-  function setEducationRow(index, key, value) {
-    setForm((prev) => {
-      const education = prev.education.map((row, i) =>
-        i === index ? { ...row, [key]: value } : row
-      )
-      return { ...prev, education }
-    })
-  }
-
-  function addEducationRow() {
-    setForm((prev) => ({
-      ...prev,
-      education: [
-        ...prev.education,
-        { level: '', institute: '', year: '', percentage: '' },
-      ],
-    }))
-  }
-
-  function removeEducationRow(index) {
-    setForm((prev) => ({
-      ...prev,
-      education:
-        prev.education.length <= 1
-          ? prev.education
-          : prev.education.filter((_, i) => i !== index),
-    }))
+  async function handlePhoto(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    const token = getStudentToken()
+    if (!token) {
+      setError('Please log in again to upload a photo')
+      return
+    }
+    setUploadingPhoto(true)
+    setError('')
+    try {
+      const data = await uploadStudentAvatar(token, file)
+      setField('avatar', data.data?.url || data.url || '')
+    } catch (err) {
+      setError(err.message || 'Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
   }
 
   async function handleSave() {
@@ -230,40 +273,28 @@ export default function ProfilePage() {
 
     const payload = {
       name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
       mobile: form.mobile.replace(/\D/g, '').slice(-10),
       dob: form.dob,
       gender: form.gender,
       bloodGroup: form.bloodGroup,
-      batch: form.batch,
-      course: form.course,
-      semester: form.semester,
-      rollNo: form.rollNo,
-      enrollmentDate: form.enrollmentDate,
-      trainer: form.trainer,
-      trainerEmail: form.trainerEmail,
+      avatar: form.avatar,
       address: form.address,
       parent: form.parent,
       emergency: form.emergency,
-      education: form.education,
-      skills: form.skillsText
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      achievements: form.achievementsText
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
     }
 
     try {
       const data = await updateStudentProfile(token, payload)
-      setProfile(data.user)
-      setForm(toFormState(data.user))
-      persistStudentSession({ token: data.token || token, user: data.user })
+      setPending(data.pendingProfileChange || null)
+      if (data.user) setProfile(data.user)
       setEditing(false)
-      setSuccess('Profile updated successfully')
+      setSuccess(
+        data.message ||
+          'Request submitted. Admin approval ke baad profile update hogi.',
+      )
     } catch (err) {
-      setError(err.message || 'Failed to update profile')
+      setError(err.message || 'Failed to submit profile request')
     } finally {
       setSaving(false)
     }
@@ -272,6 +303,10 @@ export default function ProfilePage() {
   const p = profile
   const displayPhone =
     p.phone || (p.mobile ? `+91 ${p.mobile}` : '') || '—'
+  const heroPhoto = editing
+    ? studentMediaUrl(form.avatar) || studentMediaUrl(p.avatar) || avatarFromName(form.name || p.name)
+    : studentMediaUrl(p.avatar) || avatarFromName(p.name)
+  const hasPending = pending?.status === 'Pending'
 
   if (loading) {
     return (
@@ -290,17 +325,42 @@ export default function ProfilePage() {
       <div className="overflow-hidden rounded-lg border border-[#00A896]/30 bg-gradient-to-br from-[#06151C] via-[#0a2530] to-[#005F6B] p-3 text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img
-              src={studentMediaUrl(p.avatar) || avatarFromName(p.name)}
-              alt={p.name}
-              className="h-20 w-20 rounded-lg border-2 border-[#FF5E14]/50 object-cover"
-            />
+            <div className="relative">
+              <img
+                src={heroPhoto}
+                alt={p.name}
+                className="h-20 w-20 rounded-lg border-2 border-[#FF5E14]/50 object-cover"
+              />
+              {editing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/45 text-white"
+                    title="Change photo"
+                  >
+                    <Camera size={18} />
+                  </button>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handlePhoto}
+                  />
+                </>
+              ) : null}
+            </div>
             <div>
               <h2 className="text-xl font-bold">{p.name || 'Student'}</h2>
               <p className="text-sm text-slate-300">{p.email || p.id || '—'}</p>
               <p className="mt-1 text-xs text-[#00E5CC]">
                 {[p.course, p.batch].filter(Boolean).join(' · ') || 'Complete your profile'}
               </p>
+              {uploadingPhoto ? (
+                <p className="mt-1 text-xs text-amber-200">Uploading photo…</p>
+              ) : null}
             </div>
           </div>
           {editing ? (
@@ -313,19 +373,26 @@ export default function ProfilePage() {
                 <X size={14} />
                 Cancel
               </SecondaryButton>
-              <PrimaryButton onClick={handleSave} disabled={saving}>
+              <PrimaryButton onClick={handleSave} disabled={saving || uploadingPhoto}>
                 <Check size={14} />
-                {saving ? 'Saving…' : 'Save Changes'}
+                {saving ? 'Submitting…' : 'Submit for approval'}
               </PrimaryButton>
             </div>
           ) : (
             <PrimaryButton onClick={startEdit}>
               <Pencil size={14} />
-              Edit Profile
+              {hasPending ? 'Update request' : 'Edit Profile'}
             </PrimaryButton>
           )}
         </div>
       </div>
+
+      {hasPending ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Aapki personal details ki request admin ke paas pending hai. Approve hone ke baad hi
+          profile update hogi.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -349,8 +416,13 @@ export default function ProfilePage() {
                   onChange={(e) => setField('name', e.target.value)}
                 />
               </Field>
-              <Field label="Email (read-only)">
-                <input className={inputClass} value={p.email || ''} disabled />
+              <Field label="Email">
+                <input
+                  className={inputClass}
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setField('email', e.target.value)}
+                />
               </Field>
               <Field label="Mobile">
                 <input
@@ -387,41 +459,6 @@ export default function ProfilePage() {
                   value={form.bloodGroup}
                   placeholder="e.g. B+"
                   onChange={(e) => setField('bloodGroup', e.target.value)}
-                />
-              </Field>
-              <Field label="Roll No">
-                <input
-                  className={inputClass}
-                  value={form.rollNo}
-                  onChange={(e) => setField('rollNo', e.target.value)}
-                />
-              </Field>
-              <Field label="Enrollment">
-                <DateInput
-                  className={inputClass}
-                  value={form.enrollmentDate}
-                  onChange={(e) => setField('enrollmentDate', e.target.value)}
-                />
-              </Field>
-              <Field label="Semester">
-                <input
-                  className={inputClass}
-                  value={form.semester}
-                  onChange={(e) => setField('semester', e.target.value)}
-                />
-              </Field>
-              <Field label="Course">
-                <input
-                  className={inputClass}
-                  value={form.course}
-                  onChange={(e) => setField('course', e.target.value)}
-                />
-              </Field>
-              <Field label="Batch">
-                <input
-                  className={inputClass}
-                  value={form.batch}
-                  onChange={(e) => setField('batch', e.target.value)}
                 />
               </Field>
             </div>
@@ -590,74 +627,8 @@ export default function ProfilePage() {
           )}
         </Panel>
 
-        <Panel
-          title="Education Details"
-          action={
-            editing ? (
-              <button
-                type="button"
-                onClick={addEducationRow}
-                className="text-xs font-semibold text-[#008C95] hover:underline"
-              >
-                + Add
-              </button>
-            ) : null
-          }
-        >
-          {editing ? (
-            <ul className="space-y-2">
-              {form.education.map((e, index) => (
-                <li
-                  key={`edu-${index}`}
-                  className="rounded-lg border border-slate-100 px-3 py-2.5 text-sm"
-                >
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Field label="Level">
-                      <input
-                        className={inputClass}
-                        value={e.level}
-                        onChange={(ev) => setEducationRow(index, 'level', ev.target.value)}
-                      />
-                    </Field>
-                    <Field label="Institute">
-                      <input
-                        className={inputClass}
-                        value={e.institute}
-                        onChange={(ev) =>
-                          setEducationRow(index, 'institute', ev.target.value)
-                        }
-                      />
-                    </Field>
-                    <Field label="Year">
-                      <input
-                        className={inputClass}
-                        value={e.year}
-                        onChange={(ev) => setEducationRow(index, 'year', ev.target.value)}
-                      />
-                    </Field>
-                    <Field label="Percentage">
-                      <input
-                        className={inputClass}
-                        value={e.percentage}
-                        onChange={(ev) =>
-                          setEducationRow(index, 'percentage', ev.target.value)
-                        }
-                      />
-                    </Field>
-                  </div>
-                  {form.education.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => removeEducationRow(index)}
-                      className="mt-2 text-xs font-semibold text-rose-600 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : p.education?.length ? (
+        <Panel title="Education Details">
+          {p.education?.length ? (
             <ul className="space-y-2">
               {p.education.map((e) => (
                 <li
@@ -677,16 +648,7 @@ export default function ProfilePage() {
         </Panel>
 
         <Panel title="Skills">
-          {editing ? (
-            <Field label="Comma-separated skills">
-              <input
-                className={inputClass}
-                value={form.skillsText}
-                placeholder="React, Node.js, MongoDB"
-                onChange={(e) => setField('skillsText', e.target.value)}
-              />
-            </Field>
-          ) : p.skills?.length ? (
+          {p.skills?.length ? (
             <div className="flex flex-wrap gap-2">
               {p.skills.map((s) => (
                 <span
@@ -703,55 +665,25 @@ export default function ProfilePage() {
         </Panel>
 
         <Panel title="Achievements & Certificates">
-          {editing ? (
-            <div className="space-y-3 text-sm">
-              <Field label="Achievements (one per line)">
-                <textarea
-                  className={`${inputClass} min-h-[88px]`}
-                  value={form.achievementsText}
-                  onChange={(e) => setField('achievementsText', e.target.value)}
-                />
-              </Field>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Field label="Trainer">
-                  <input
-                    className={inputClass}
-                    value={form.trainer}
-                    onChange={(e) => setField('trainer', e.target.value)}
-                  />
-                </Field>
-                <Field label="Trainer email">
-                  <input
-                    className={inputClass}
-                    value={form.trainerEmail}
-                    onChange={(e) => setField('trainerEmail', e.target.value)}
-                  />
-                </Field>
-              </div>
-            </div>
+          {p.achievements?.length ? (
+            <ul className="space-y-2">
+              {p.achievements.map((a) => (
+                <li key={a} className="flex items-center gap-2 text-sm text-slate-700">
+                  <Award size={14} className="shrink-0 text-[#FF5E14]" />
+                  {a}
+                </li>
+              ))}
+            </ul>
           ) : (
-            <>
-              {p.achievements?.length ? (
-                <ul className="space-y-2">
-                  {p.achievements.map((a) => (
-                    <li key={a} className="flex items-center gap-2 text-sm text-slate-700">
-                      <Award size={14} className="shrink-0 text-[#FF5E14]" />
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-slate-500">No achievements added yet.</p>
-              )}
-              <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                <User size={12} />
-                Trainer:{' '}
-                {p.trainer
-                  ? `${p.trainer}${p.trainerEmail ? ` (${p.trainerEmail})` : ''}`
-                  : '—'}
-              </p>
-            </>
+            <p className="text-sm text-slate-500">No achievements added yet.</p>
           )}
+          <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+            <User size={12} />
+            Trainer:{' '}
+            {p.trainer
+              ? `${p.trainer}${p.trainerEmail ? ` (${p.trainerEmail})` : ''}`
+              : '—'}
+          </p>
         </Panel>
       </div>
     </section>

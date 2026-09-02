@@ -22,6 +22,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiUsers,
+  FiUserCheck,
   FiUserPlus,
   FiHome,
   FiLayers,
@@ -62,6 +63,7 @@ import PaymentsPage from './finance/PaymentsPage.jsx'
 import AttendancePage from './erp/AttendancePage.jsx'
 import BatchesPage from './erp/BatchesPage.jsx'
 import StudentsPage from './erp/StudentsPage.jsx'
+import ProfileRequestsPage from './erp/ProfileRequestsPage.jsx'
 import AuditLogsPage from './AuditLogsPage.jsx'
 import ReportsPage from './reports/ReportsPage.jsx'
 import AnalyticsPage from './analytics/AnalyticsPage.jsx'
@@ -111,6 +113,7 @@ const sideMenu = [
       'New Admission',
       'Universities',
       'Students',
+      'Profile Requests',
       'ID Card Generate',
       {
         label: 'Faculty Management',
@@ -219,6 +222,7 @@ const itemIcon = {
   'New Admission': FiClipboard,
   Universities: FiGlobe,
   Students: FiUsers,
+  'Profile Requests': FiUserCheck,
   'ID Card Generate': FaIdCard,
   Faculty: FiUser,
   'Add Faculty': FiUserPlus,
@@ -557,6 +561,7 @@ export default function MasterDashboard() {
     if (activeSection === 'Attendance') return <AttendancePage />
     if (activeSection === 'Batches') return <BatchesPage />
     if (activeSection === 'Students') return <StudentsPage />
+    if (activeSection === 'Profile Requests') return <ProfileRequestsPage />
     if (activeSection === 'Faculty Assignments' || facultyId === 'assignments') return <FacultyAssignmentsPage />
     if (activeSection === 'Add Faculty' || facultyId === 'new') return <FacultyFormPage />
     if (activeSection === 'Faculty' && facultyId) return <FacultyProfilePage facultyId={facultyId} />
