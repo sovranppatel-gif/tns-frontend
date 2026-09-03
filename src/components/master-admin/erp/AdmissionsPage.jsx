@@ -38,7 +38,10 @@ import { primaryBtn, secondaryBtn } from '../../../utils/masterAdminTheme.js'
 const columns = [
   { key: 'admissionId', label: 'ID' },
   { key: 'applicant', label: 'Applicant' },
+  { key: 'fatherName', label: 'Father' },
+  { key: 'motherName', label: 'Mother' },
   { key: 'course', label: 'Course' },
+  { key: 'photo', label: 'Photo' },
   { key: 'mode', label: 'Mode' },
   { key: 'counsellor', label: 'Counsellor' },
   { key: 'fee', label: 'Fee' },
@@ -331,6 +334,15 @@ export default function AdmissionsPage() {
                     <span className="break-words">{row.counsellor || '—'}</span>
                   ),
                 }
+                : c.key === 'photo'
+                  ? {
+                      ...c,
+                      render: (row) => row.photo ? (
+                        <img src={row.photo} alt="Student" className="h-9 w-9 rounded-lg border border-slate-200 object-cover" />
+                      ) : (
+                        <span className="text-xs text-slate-400">{row.hasPhoto ? 'Available' : '—'}</span>
+                      ),
+                    }
               : c,
     ),
     {
