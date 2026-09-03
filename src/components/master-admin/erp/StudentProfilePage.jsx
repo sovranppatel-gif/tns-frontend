@@ -21,7 +21,7 @@ function photoSrc(photo) {
   const value = String(photo || '').trim()
   if (!value) return ''
   if (/^(data:|https?:|blob:)/i.test(value)) return value
-  return `${API_URL}${value}`
+  return `${API_URL}${value.startsWith('/') ? value : `/${value}`}`
 }
 
 function initials(name) {

@@ -45,7 +45,7 @@ function cardStyles() {
 }
 
 function printCards(students, template, settings) {
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800')
+  const popup = window.open('', '_blank', 'width=1000,height=800')
   if (!popup) throw new Error('Pop-up blocked. Allow pop-ups to print ID cards.')
   const root = cardStyles()
   popup.document.write(`<html><head><title>TNS ID Cards</title><style>${root}</style></head><body><div class="print-grid">${students.map((student) => `<div class="print-card-sheet is-${template.orientation}"><div class="id-card-face ${template.className}"><header><img src="${logo}" alt=""><div><strong>TNS ITI &amp; Computer</strong><small>Narsinghpur</small></div><span>STUDENT</span></header><div class="id-card-body"><img class="id-card-photo" src="${photoSrc(student.photo)}" alt=""><div class="id-card-details"><h3>${value(student, 'nameEnglish', studentProfile.name)}</h3><p class="id-card-code">${value(student, 'studentId', studentProfile.id)}</p><p><b>Course</b>${value(student, 'courseLabel', '—')}</p><p><b>Admission</b>${value(student, 'admissionId')}</p></div></div><footer><span>VALID ${settings.validity}</span><span>${value(student, 'status', 'Active')}</span></footer></div><div class="id-card-face ${template.className} id-card-back"><img src="${logo}" alt=""><h3>Important information</h3><p>- This card is institute property.</p><p>- Please carry it on campus.</p><p>- Report loss to the administration office.</p><div class="id-card-qr">${value(student, 'studentId', 'TNS')}</div><small>${settings.footer}</small></div></div>`).join('')}</div><script>window.onload=function(){window.print()}</script></body></html>`)

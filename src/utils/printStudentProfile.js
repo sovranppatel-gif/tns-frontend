@@ -25,7 +25,7 @@ function buildPrintHtml(student) {
   const contact = student?.contact || {}
   const address = student?.address || {}
   const photo = student?.photo
-    ? `<img src="${String(student.photo).replace(/"/g, '&quot;')}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" />`
+    ? `<img src="${esc(student.photo)}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" />`
     : '<span style="font-size:11px;color:#666;">Photo</span>'
 
   const addr = [
@@ -111,7 +111,7 @@ function buildPrintHtml(student) {
 
 export function printStudentProfile(student) {
   if (!student) return
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1100')
+  const popup = window.open('', '_blank', 'width=900,height=1100')
   if (!popup) {
     throw new Error('Pop-up blocked. Allow pop-ups to print the student profile.')
   }

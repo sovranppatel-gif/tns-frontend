@@ -34,6 +34,7 @@ import {
   downloadCsv,
 } from '../shared/MasterAdminUI.jsx'
 import { primaryBtn, secondaryBtn } from '../../../utils/masterAdminTheme.js'
+import { StudentPhoto } from './StudentProfilePage.jsx'
 
 const columns = [
   { key: 'admissionId', label: 'ID' },
@@ -337,10 +338,11 @@ export default function AdmissionsPage() {
                 : c.key === 'photo'
                   ? {
                       ...c,
-                      render: (row) => row.photo ? (
-                        <img src={row.photo} alt="Student" className="h-9 w-9 rounded-lg border border-slate-200 object-cover" />
-                      ) : (
-                        <span className="text-xs text-slate-400">{row.hasPhoto ? 'Available' : '—'}</span>
+                      render: (row) => (
+                        <StudentPhoto
+                          student={{ ...row, nameEnglish: row.nameEnglish || row.applicant }}
+                          size="sm"
+                        />
                       ),
                     }
               : c,
