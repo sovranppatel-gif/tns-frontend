@@ -1166,6 +1166,24 @@ export default function StudentsPage() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => {
+            setUniversityFilter('')
+            setCourseFilter('')
+            setSessionFilter('')
+            setBatchFilter('')
+            setTermFilter('')
+            setGenderFilter('')
+            setCategoryFilter('')
+            table.setSearch('')
+            table.setFilter('')
+            table.setPage(1)
+          }}
+          className="inline-flex h-full min-h-10 items-center justify-center gap-1 rounded-lg border border-[#FF5E14]/30 bg-[#FF5E14]/10 px-3 text-sm font-semibold text-[#FF5E14] transition hover:bg-[#FF5E14]/15"
+        >
+          <X size={14} /> Clear
+        </button>
       </div>
 
       {studentFormPanel}

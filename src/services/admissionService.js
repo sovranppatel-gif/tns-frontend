@@ -30,12 +30,15 @@ export async function getAdmissionsMeta() {
   }
 }
 
-export async function getAdmissions() {
+export async function getAdmissions({ page = 1, limit = 25, search = '', status = '' } = {}) {
   let response
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), 20000)
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (search.trim()) params.set('search', search.trim())
+  if (status) params.set('status', status)
   try {
-    response = await fetch(buildUrl(), {
+    response = await fetch(buildUrl(`?${params.toString()}`), {
       headers: authHeaders(),
       signal: controller.signal,
     })
@@ -54,6 +57,10 @@ export async function getAdmissions() {
   return {
     rows: Array.isArray(data.rows) ? data.rows : [],
     stats: data.stats || {},
+    total: Number(data.total ?? data.stats?.total ?? 0),
+    page: Number(data.page ?? page),
+    limit: Number(data.limit ?? limit),
+    totalPages: Number(data.totalPages ?? 0),
   }
 }
 

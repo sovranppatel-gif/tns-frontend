@@ -30,7 +30,6 @@ import {
   Pagination,
   StatusBadge,
   Modal,
-  useClientTable,
   downloadCsv,
 } from '../shared/MasterAdminUI.jsx'
 import { primaryBtn, secondaryBtn } from '../../../utils/masterAdminTheme.js'
@@ -102,25 +101,37 @@ export default function AdmissionsPage() {
   const [showOnlineRequests, setShowOnlineRequests] = useState(false)
   const [actionBusyId, setActionBusyId] = useState('')
   const [statusConfirm, setStatusConfirm] = useState(null)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 25
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (options = {}) => {
     try {
       setError('')
       setLoading(true)
-      const data = await getAdmissions()
+      const data = await getAdmissions({
+        page: options.page ?? page,
+        limit: pageSize,
+        search: options.search ?? search,
+        status: options.status ?? filter,
+      })
       setRows(data.rows)
       setStats(data.stats || {})
+      setTotal(data.total)
     } catch (err) {
       setError(err?.message || 'Unable to load admissions')
       setRows([])
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [filter, page, search])
 
   useEffect(() => {
-    reload()
-  }, [reload])
+    const timer = window.setTimeout(() => reload(), search ? 300 : 0)
+    return () => window.clearTimeout(timer)
+  }, [reload, search])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -128,16 +139,7 @@ export default function AdmissionsPage() {
     return () => window.clearTimeout(t)
   }, [toast])
 
-  const table = useClientTable(rows, {
-    searchKeys: ['admissionId', 'applicant', 'course', 'counsellor', 'email', 'phone'],
-    pageSize: 8,
-    filterKey: 'status',
-  })
-
-  const filterOptions = useMemo(() => {
-    const set = new Set(rows.map((r) => r.status).filter(Boolean))
-    return [...set]
-  }, [rows])
+  const filterOptions = STATUS_OPTIONS
 
   const onlineRequests = useMemo(() => {
     return rows.filter((r) => {
@@ -440,16 +442,22 @@ export default function AdmissionsPage() {
       </div>
 
       <PageToolbar
-        search={table.search}
-        onSearch={table.setSearch}
+        search={search}
+        onSearch={(value) => {
+          setSearch(value)
+          setPage(1)
+        }}
         searchPlaceholder="Search admissions…"
         filters={filterOptions}
-        filterValue={table.filter}
-        onFilter={table.setFilter}
+        filterValue={filter}
+        onFilter={(value) => {
+          setFilter(value)
+          setPage(1)
+        }}
         addLabel="Add New Admission"
         onAdd={openCreate}
-        onExportCsv={() => downloadCsv('admissions.csv', columns, table.filtered)}
-        onExportExcel={() => downloadCsv('admissions.xls', columns, table.filtered)}
+        onExportCsv={() => downloadCsv('admissions.csv', columns, rows)}
+        onExportExcel={() => downloadCsv('admissions.xls', columns, rows)}
         onExportPdf={() => window.print()}
         extraActions={
           <button
@@ -597,16 +605,16 @@ export default function AdmissionsPage() {
           <>
             <DataTable
               columns={tableColumns}
-              rows={table.pageRows}
+              rows={rows}
               wrap
               emptyTitle="No admissions yet"
               emptyDescription="Click Add New Admission to open the official admission form."
             />
             <Pagination
-              page={table.page}
-              pageSize={table.pageSize}
-              total={table.total}
-              onPageChange={table.setPage}
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
             />
           </>
         )}

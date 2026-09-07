@@ -46,7 +46,7 @@ async function request(path = '', options = {}) {
     if (err?.name === 'AbortError') {
       throw new Error('Students request timed out. Check the server connection and retry.')
     }
-    throw new Error('Could not reach the server. Make sure the backend is running on port 3000.')
+    throw new Error('Could not reach the server. Make sure the backend is running on port 3001.')
   } finally {
     window.clearTimeout(timer)
   }
