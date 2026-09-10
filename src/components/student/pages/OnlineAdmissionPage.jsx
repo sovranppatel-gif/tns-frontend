@@ -17,8 +17,9 @@ import {
   getAdmissionCatalog,
   getMyOnlineAdmission,
   uploadEducationDocument,
+  uploadPaymentProof,
 } from '../../../services/admissionService.js'
-import { API_URL } from '../../../utils/api.js'
+import { openAuthorizedDocument } from '../../../utils/secureDocument.js'
 import { getStudentSession, getStudentToken } from '../../../utils/studentAuth.js'
 import { DateInput } from '../../shared/DateInput.jsx'
 import { Panel, PrimaryButton, SecondaryButton } from '../shared/StudentUI.jsx'
@@ -55,12 +56,6 @@ const emptyEducation = () => ({
 
 const EDU_DOC_MAX_BYTES = 400 * 1024
 const EDU_DOC_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif'
-
-function absoluteUploadUrl(url) {
-  if (!url) return ''
-  if (/^https?:\/\//i.test(url)) return url
-  return `${API_URL}${url.startsWith('/') ? url : `/${url}`}`
-}
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
@@ -124,6 +119,9 @@ export default function OnlineAdmissionPage() {
     transactionId: '',
     paymentNote: '',
     paymentProofName: '',
+    paymentProofUrl: '',
+    paymentProofUploading: false,
+    paymentProofError: '',
   }))
 
   const [errors, setErrors] = useState({})
@@ -332,10 +330,30 @@ export default function OnlineAdmissionPage() {
     reader.readAsDataURL(file)
   }
 
-  const handlePaymentProof = (e) => {
+  const handlePaymentProof = async (e) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    setField('paymentProofName', file.name)
+    if (file.size > EDU_DOC_MAX_BYTES) {
+      setField('paymentProofError', 'Receipt must be 400 KB or smaller')
+      return
+    }
+    const token = getStudentToken()
+    if (!token) {
+      setField('paymentProofError', 'Please log in again to upload a receipt')
+      return
+    }
+    setField('paymentProofUploading', true)
+    setField('paymentProofError', '')
+    try {
+      const data = await uploadPaymentProof(file, token)
+      setField('paymentProofUrl', data.url || '')
+      setField('paymentProofName', data.name || file.name)
+      setField('paymentProofUploading', false)
+    } catch (err) {
+      setField('paymentProofUploading', false)
+      setField('paymentProofError', err?.message || 'Upload failed')
+    }
   }
 
   const validate = () => {
@@ -444,6 +462,7 @@ export default function OnlineAdmissionPage() {
           transactionId: form.transactionId.trim(),
           note: form.paymentNote.trim(),
           proofName: form.paymentProofName || '',
+          proofUrl: form.paymentProofUrl || '',
         },
       }
 
@@ -909,9 +928,14 @@ export default function OnlineAdmissionPage() {
                   {row.documentUrl ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <a
-                        href={absoluteUploadUrl(row.documentUrl)}
-                        target="_blank"
-                        rel="noreferrer"
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          openAuthorizedDocument(row.documentUrl, getStudentToken()).catch((err) => {
+                            setToast(err?.message || 'Unable to open document')
+                            window.setTimeout(() => setToast(''), 4000)
+                          })
+                        }}
                         className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-[#005F6B] hover:bg-[#00A896]/10"
                       >
                         <Eye size={12} />
@@ -1225,15 +1249,36 @@ export default function OnlineAdmissionPage() {
                   <label className="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:border-[#00A896]">
                     <Upload size={14} className="text-[#008C95]" />
                     <span className="truncate">
-                      {form.paymentProofName || 'Upload receipt (optional)'}
+                      {form.paymentProofUploading
+                        ? 'Uploading…'
+                        : form.paymentProofName || 'Upload receipt (optional)'}
                     </span>
                     <input
                       type="file"
                       accept="image/*,.pdf"
                       className="hidden"
+                      disabled={form.paymentProofUploading}
                       onChange={handlePaymentProof}
                     />
                   </label>
+                  {form.paymentProofUrl ? (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        openAuthorizedDocument(form.paymentProofUrl, getStudentToken()).catch((err) => {
+                          setToast(err?.message || 'Unable to open receipt')
+                          window.setTimeout(() => setToast(''), 4000)
+                        })
+                      }}
+                      className="mt-1 inline-block text-xs font-semibold text-[#008C95]"
+                    >
+                      View uploaded receipt
+                    </a>
+                  ) : null}
+                  {form.paymentProofError ? (
+                    <p className="mt-1 text-[11px] text-rose-600">{form.paymentProofError}</p>
+                  ) : null}
                 </Field>
               </>
             )}

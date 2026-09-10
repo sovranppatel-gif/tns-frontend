@@ -30,13 +30,14 @@ export async function getAdmissionsMeta() {
   }
 }
 
-export async function getAdmissions({ page = 1, limit = 25, search = '', status = '' } = {}) {
+export async function getAdmissions({ page = 1, limit = 25, search = '', status = '', mode = '' } = {}) {
   let response
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), 20000)
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (search.trim()) params.set('search', search.trim())
   if (status) params.set('status', status)
+  if (mode) params.set('mode', mode)
   try {
     response = await fetch(buildUrl(`?${params.toString()}`), {
       headers: authHeaders(),
@@ -90,7 +91,10 @@ export async function createAdmission(payload) {
   if (!response.ok || !data.success) {
     throw new Error(data.message || 'Unable to create admission')
   }
-  return data.entry
+  // duplicateWarning is a non-blocking Phase-11 signal (possible existing
+  // admission with the same email/phone) — attached to the entry so the
+  // one existing caller can surface it without changing its return shape.
+  return data.entry ? { ...data.entry, duplicateWarning: data.duplicateWarning || null } : data.entry
 }
 
 export async function updateAdmission(id, payload) {
@@ -106,14 +110,22 @@ export async function updateAdmission(id, payload) {
   return data.entry
 }
 
-export async function deleteAdmission(id) {
-  const response = await fetch(buildUrl(`/${encodeURIComponent(id)}`), {
+export async function deleteAdmission(id, { force = false, reason = '' } = {}) {
+  const params = new URLSearchParams()
+  if (force) params.set('force', 'true')
+  const qs = params.toString()
+  const response = await fetch(buildUrl(`/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`), {
     method: 'DELETE',
     headers: authHeaders(),
+    body: JSON.stringify({ reason }),
   })
   const data = await parseJson(response)
   if (!response.ok || !data.success) {
-    throw new Error(data.message || 'Unable to delete admission')
+    const err = new Error(data.message || 'Unable to delete admission')
+    err.code = data.code
+    err.linkedStudent = Boolean(data.linkedStudent)
+    err.linkedFee = Boolean(data.linkedFee)
+    throw err
   }
 }
 
@@ -148,6 +160,67 @@ export async function uploadEducationDocument(file, token) {
     throw new Error(data.message || 'Unable to upload document')
   }
   return data.data
+}
+
+/**
+ * Upload payment proof / receipt (PDF or image, max 400 KB). Same auth and
+ * validation as uploadEducationDocument — separate storage location so it
+ * can be verified/rejected independently (see admissions.routes.js).
+ */
+export async function uploadPaymentProof(file, token) {
+  if (!file) throw new Error('No file selected')
+  if (file.size > 400 * 1024) {
+    throw new Error('Receipt must be 400 KB or smaller')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  let response
+  try {
+    response = await fetch(buildUrl('/upload-payment-proof'), {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    })
+  } catch {
+    throw new Error('Could not reach the server. Make sure the backend is running on port 3000.')
+  }
+
+  const data = await parseJson(response)
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Unable to upload receipt')
+  }
+  return data.data
+}
+
+/**
+ * Master-admin document/payment verification (Phase 6 / Phase 8).
+ */
+export async function verifyAdmissionDocument(admissionId, index, status, reason) {
+  const response = await fetch(buildUrl(`/${encodeURIComponent(admissionId)}/documents/${index}/verify`), {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ status, reason }),
+  })
+  const data = await parseJson(response)
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Unable to update document verification')
+  }
+  return data.entry
+}
+
+export async function verifyAdmissionPayment(admissionId, status, reason) {
+  const response = await fetch(buildUrl(`/${encodeURIComponent(admissionId)}/payment/verify`), {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ status, reason }),
+  })
+  const data = await parseJson(response)
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Unable to update payment verification')
+  }
+  return data.entry
 }
 
 /**

@@ -6,13 +6,15 @@ import {
   getAdmissionById,
   updateAdmission,
   uploadEducationDocument,
+  verifyAdmissionDocument,
+  verifyAdmissionPayment,
 } from '../../../services/admissionService.js'
 import { getUniversities } from '../../../services/universityService.js'
 import { getCourseById, getCourses } from '../../../services/courseService.js'
-import { API_URL } from '../../../utils/api.js'
 import { getMasterAdminToken } from '../../../utils/masterAdminAuth.js'
 import { masterAdminDashboardPath } from '../../../utils/masterAdminRoutes.js'
 import { printAdmissionForm } from '../../../utils/printAdmissionForm.js'
+import { openAuthorizedDocument } from '../../../utils/secureDocument.js'
 import { DateInput } from '../../shared/DateInput.jsx'
 import { PrimaryButton, SecondaryButton } from '../shared/MasterAdminUI.jsx'
 import { card, inputFocus } from '../../../utils/masterAdminTheme.js'
@@ -57,12 +59,6 @@ const EDU_DOC_MAX_BYTES = 400 * 1024
 const EDU_DOC_ACCEPT =
   'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif'
 
-function absoluteUploadUrl(url) {
-  if (!url) return ''
-  if (/^https?:\/\//i.test(url)) return url
-  return `${API_URL}${url.startsWith('/') ? url : `/${url}`}`
-}
-
 function mapEducationRow(row = {}) {
   return {
     ...emptyEducation(),
@@ -74,6 +70,9 @@ function mapEducationRow(row = {}) {
     division: row.division || '',
     documentUrl: row.documentUrl || '',
     documentName: row.documentName || '',
+    // Set by Master Admin document verification (Phase 6) — carried through
+    // load/save so a later unrelated field edit doesn't wipe it out.
+    verification: row.verification || null,
   }
 }
 
@@ -87,6 +86,7 @@ function serializeEducation(rows) {
     division: String(row.division || '').trim(),
     documentUrl: String(row.documentUrl || '').trim(),
     documentName: String(row.documentName || '').trim(),
+    ...(row.verification ? { verification: row.verification } : {}),
   }))
 }
 
@@ -293,6 +293,7 @@ export default function AdmissionFormPage() {
   const [universities, setUniversities] = useState([])
   const [courses, setCourses] = useState([])
   const [loadedCollege, setLoadedCollege] = useState('')
+  const [paymentInfo, setPaymentInfo] = useState(null)
   const [loading, setLoading] = useState(Boolean(editingId))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -333,6 +334,7 @@ export default function AdmissionFormPage() {
         if (cancelled) return
         const d = entry.details || {}
         setLoadedCollege(entry.college || d.universityNameSnapshot || d.universityName || '')
+        setPaymentInfo(d.payment && typeof d.payment === 'object' ? d.payment : null)
         setForm({
           ...emptyForm(),
           registrationNo: d.registrationNo || entry.admissionId || '',
@@ -662,6 +664,49 @@ export default function AdmissionFormPage() {
     })
   }
 
+  const handleVerifyDocument = async (index, status) => {
+    if (!editingId) return
+    let reason = ''
+    if (status === 'Rejected') {
+      reason = window.prompt('Reason for rejecting this document:') || ''
+      if (!reason.trim()) return
+    }
+    try {
+      const entry = await verifyAdmissionDocument(editingId, index, status, reason.trim())
+      const updatedVerification = entry?.education?.[index]?.verification || {
+        status,
+        reason: reason.trim(),
+      }
+      setForm((prev) => ({
+        ...prev,
+        education: prev.education.map((row, i) =>
+          i === index ? { ...row, verification: updatedVerification } : row,
+        ),
+      }))
+      setToast(`Document ${status.toLowerCase()}`)
+    } catch (err) {
+      setError(err?.message || 'Unable to update document verification')
+    }
+  }
+
+  const handleVerifyPayment = async (status) => {
+    if (!editingId) return
+    let reason = ''
+    if (status === 'Rejected') {
+      reason = window.prompt('Reason for rejecting this payment:') || ''
+      if (!reason.trim()) return
+    }
+    try {
+      const entry = await verifyAdmissionPayment(editingId, status, reason.trim())
+      setPaymentInfo(entry?.details?.payment || null)
+      setToast(
+        status === 'UnderVerification' ? 'Payment moved to under verification' : `Payment ${status.toLowerCase()}`,
+      )
+    } catch (err) {
+      setError(err?.message || 'Unable to update payment verification')
+    }
+  }
+
   const onPhotoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -817,10 +862,14 @@ export default function AdmissionFormPage() {
         )
       } else {
         const entry = await createAdmission(payload)
-        setToast(
+        const savedMessage =
           payload.status === 'Approved' && entry?.studentId
             ? `Admission saved · Student ${entry.studentId} added`
-            : 'Admission saved',
+            : 'Admission saved'
+        setToast(
+          entry?.duplicateWarning
+            ? `${savedMessage} — ${entry.duplicateWarning.message} (${entry.duplicateWarning.admissionId})`
+            : savedMessage,
         )
       }
       window.setTimeout(goBack, 600)
@@ -1391,9 +1440,13 @@ export default function AdmissionFormPage() {
                 {row.documentUrl ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <a
-                      href={absoluteUploadUrl(row.documentUrl)}
-                      target="_blank"
-                      rel="noreferrer"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        openAuthorizedDocument(row.documentUrl, getMasterAdminToken()).catch((err) =>
+                          setError(err?.message || 'Unable to open document')
+                        )
+                      }}
                       className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-[#005F6B] hover:bg-[#00A896]/10"
                     >
                       <Eye size={12} />
@@ -1407,6 +1460,38 @@ export default function AdmissionFormPage() {
                       <X size={12} />
                       Remove
                     </button>
+                    {editingId ? (
+                      row.verification?.status === 'Verified' ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1.5 text-xs font-semibold text-emerald-700">
+                          Verified
+                        </span>
+                      ) : row.verification?.status === 'Rejected' ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-1.5 text-xs font-semibold text-rose-700"
+                          title={row.verification.reason || ''}
+                        >
+                          Rejected: {row.verification.reason || 'No reason given'}
+                        </span>
+                      ) : null
+                    ) : null}
+                    {editingId ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleVerifyDocument(index, 'Verified')}
+                          className="rounded-md border border-emerald-200 px-2 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                        >
+                          Verify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleVerifyDocument(index, 'Rejected')}
+                          className="rounded-md border border-rose-200 px-2 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-gradient-to-r from-[#FF5E14] to-[#008C95] px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-95">
@@ -1429,6 +1514,68 @@ export default function AdmissionFormPage() {
           ))}
         </div>
       </Section>
+
+      {editingId && paymentInfo ? (
+        <Section title="Payment">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Mode"><p className="text-sm text-slate-800">{paymentInfo.mode || '—'}</p></Field>
+            <Field label="Amount"><p className="text-sm text-slate-800">{paymentInfo.amount || '—'}</p></Field>
+            <Field label="Transaction ID">
+              <p className="text-sm text-slate-800">{paymentInfo.transactionId || '—'}</p>
+            </Field>
+            <Field label="Status">
+              <span
+                className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  paymentInfo.status === 'Verified'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : paymentInfo.status === 'Rejected'
+                      ? 'bg-rose-50 text-rose-700'
+                      : 'bg-amber-50 text-amber-700'
+                }`}
+              >
+                {paymentInfo.status || 'Pending'}
+              </span>
+            </Field>
+            {paymentInfo.proofUrl ? (
+              <Field label="Receipt">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    openAuthorizedDocument(paymentInfo.proofUrl, getMasterAdminToken()).catch((err) =>
+                      setError(err?.message || 'Unable to open receipt'),
+                    )
+                  }}
+                  className="text-sm font-semibold text-[#008C95]"
+                >
+                  {paymentInfo.proofName || 'View receipt'}
+                </a>
+              </Field>
+            ) : null}
+            {paymentInfo.remarks ? (
+              <Field label="Remarks"><p className="text-sm text-slate-800">{paymentInfo.remarks}</p></Field>
+            ) : null}
+            <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+              <button
+                type="button"
+                onClick={() => handleVerifyPayment('Verified')}
+                disabled={paymentInfo.status === 'Verified'}
+                className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+              >
+                Verify payment
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVerifyPayment('Rejected')}
+                disabled={paymentInfo.status === 'Rejected'}
+                className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-40"
+              >
+                Reject payment
+              </button>
+            </div>
+          </div>
+        </Section>
+      ) : null}
 
       <Section title="Office">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

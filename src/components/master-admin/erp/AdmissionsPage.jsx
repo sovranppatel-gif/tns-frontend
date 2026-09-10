@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CheckCircle2,
@@ -71,7 +71,7 @@ function statusSelectClass(status) {
   return 'border-slate-200 bg-slate-50 text-slate-700'
 }
 
-function buildUpdatePayload(row, status) {
+function buildUpdatePayload(row, status, reason) {
   return {
     applicant: row.applicant,
     email: row.email,
@@ -88,7 +88,15 @@ function buildUpdatePayload(row, status) {
     notes: row.notes || '',
     // Do not send slim/list details — preserves photo & documents on server
     admissionDate: row.admissionDate,
+    ...(reason ? { reason } : {}),
   }
+}
+
+// Mirrors the server's admissions.rules.js reason requirement for the common
+// case (Reject/Cancel) so the admin sees it before submitting — the server
+// remains authoritative, including for less-common forced transitions.
+function statusReasonRequired(nextStatus) {
+  return nextStatus === 'Rejected' || nextStatus === 'Cancelled'
 }
 
 export default function AdmissionsPage() {
@@ -101,6 +109,7 @@ export default function AdmissionsPage() {
   const [showOnlineRequests, setShowOnlineRequests] = useState(false)
   const [actionBusyId, setActionBusyId] = useState('')
   const [statusConfirm, setStatusConfirm] = useState(null)
+  const [statusReason, setStatusReason] = useState('')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -128,6 +137,36 @@ export default function AdmissionsPage() {
     }
   }, [filter, page, search])
 
+  // Server-backed Online Requests queue (Phase 15 fix) — previously this
+  // panel filtered `rows`, i.e. only the current 25-row page, so pending
+  // online applications on later pages were invisible. This fetches every
+  // matching record directly instead.
+  const [onlineRequests, setOnlineRequests] = useState([])
+  const [onlineLoading, setOnlineLoading] = useState(false)
+
+  const loadOnlineRequests = useCallback(async () => {
+    try {
+      setOnlineLoading(true)
+      const data = await getAdmissions({
+        page: 1,
+        limit: 50,
+        mode: 'Online',
+        status: 'Pending,Verification',
+      })
+      setOnlineRequests(data.rows)
+    } catch (err) {
+      setError(err?.message || 'Unable to load online requests')
+    } finally {
+      setOnlineLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (showOnlineRequests) loadOnlineRequests()
+  }, [showOnlineRequests, loadOnlineRequests])
+
+  const onlinePendingCount = stats.onlinePending ?? onlineRequests.length
+
   useEffect(() => {
     const timer = window.setTimeout(() => reload(), search ? 300 : 0)
     return () => window.clearTimeout(timer)
@@ -140,24 +179,6 @@ export default function AdmissionsPage() {
   }, [toast])
 
   const filterOptions = STATUS_OPTIONS
-
-  const onlineRequests = useMemo(() => {
-    return rows.filter((r) => {
-      if (r.mode !== 'Online') return false
-      const source = r.details?.source
-      // Prefer student-submitted online apps; also include any Online mode pending/verification
-      if (source === 'student-online') return true
-      return r.status === 'Pending' || r.status === 'Verification'
-    })
-  }, [rows])
-
-  const onlinePendingCount = useMemo(
-    () =>
-      onlineRequests.filter(
-        (r) => r.status === 'Pending' || r.status === 'Verification'
-      ).length,
-    [onlineRequests]
-  )
 
   const openCreate = () => {
     navigate(masterAdminDashboardPath('New Admission'))
@@ -178,7 +199,26 @@ export default function AdmissionsPage() {
       await deleteAdmission(row._id)
       setToast('Admission deleted')
       await reload()
+      if (showOnlineRequests) loadOnlineRequests()
     } catch (err) {
+      if (err?.code === 'ADMISSION_HAS_LINKED_RECORDS') {
+        const proceed = window.confirm(`${err.message}\n\nForce delete anyway? This cannot be undone.`)
+        if (!proceed) return
+        const reason = window.prompt('Reason for deleting an admission with a linked student/fee record:')
+        if (!reason || !reason.trim()) {
+          setError('A reason is required to force-delete this admission')
+          return
+        }
+        try {
+          await deleteAdmission(row._id, { force: true, reason: reason.trim() })
+          setToast('Admission deleted')
+          await reload()
+          if (showOnlineRequests) loadOnlineRequests()
+        } catch (err2) {
+          setError(err2?.message || 'Delete failed')
+        }
+        return
+      }
       setError(err?.message || 'Delete failed')
     }
   }
@@ -218,11 +258,11 @@ export default function AdmissionsPage() {
     }
   }
 
-  const handleStatusChange = async (row, status) => {
+  const handleStatusChange = async (row, status, reason) => {
     if (!row?._id) return
     setActionBusyId(row._id)
     try {
-      const entry = await updateAdmission(row._id, buildUpdatePayload(row, status))
+      const entry = await updateAdmission(row._id, buildUpdatePayload(row, status, reason))
       setRows((prev) =>
         prev.map((r) =>
           r._id === row._id
@@ -265,6 +305,7 @@ export default function AdmissionsPage() {
         )
       }
       setStatusConfirm(null)
+      setStatusReason('')
     } catch (err) {
       setError(err?.message || 'Unable to update status')
     } finally {
@@ -274,6 +315,7 @@ export default function AdmissionsPage() {
 
   const requestStatusChange = (row, nextStatus) => {
     if (!row || !nextStatus || nextStatus === row.status) return
+    setStatusReason('')
     setStatusConfirm({ row, nextStatus })
   }
 
@@ -626,23 +668,30 @@ export default function AdmissionsPage() {
         onClose={() => {
           if (actionBusyId) return
           setStatusConfirm(null)
+          setStatusReason('')
         }}
         footer={
           <div className="flex flex-wrap justify-end gap-2">
             <button
               type="button"
               disabled={Boolean(actionBusyId)}
-              onClick={() => setStatusConfirm(null)}
+              onClick={() => {
+                setStatusConfirm(null)
+                setStatusReason('')
+              }}
               className={`${secondaryBtn} disabled:opacity-60`}
             >
               No
             </button>
             <button
               type="button"
-              disabled={Boolean(actionBusyId)}
+              disabled={
+                Boolean(actionBusyId) ||
+                (statusReasonRequired(statusConfirm?.nextStatus) && !statusReason.trim())
+              }
               onClick={() => {
                 if (!statusConfirm?.row || !statusConfirm?.nextStatus) return
-                handleStatusChange(statusConfirm.row, statusConfirm.nextStatus)
+                handleStatusChange(statusConfirm.row, statusConfirm.nextStatus, statusReason.trim())
               }}
               className={`${primaryBtn} disabled:opacity-60`}
             >
@@ -663,6 +712,23 @@ export default function AdmissionsPage() {
               ID: {statusConfirm.row.admissionId || '—'} · Course:{' '}
               {statusConfirm.row.course || statusConfirm.row.program || '—'}
             </p>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-slate-600">
+                Reason / remarks
+                {statusReasonRequired(statusConfirm.nextStatus) ? ' (required)' : ' (optional)'}
+              </span>
+              <textarea
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                rows={2}
+                placeholder={
+                  statusReasonRequired(statusConfirm.nextStatus)
+                    ? 'Why is this application being rejected/cancelled?'
+                    : 'Optional note for the audit trail'
+                }
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#00A896] focus:ring-2 focus:ring-[#FF5E14]/20"
+              />
+            </label>
           </div>
         ) : null}
       </Modal>
