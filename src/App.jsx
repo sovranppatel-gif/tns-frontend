@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
 import StudentSignIn from './pages/StudentSignIn'
 import StudentSignUp from './pages/StudentSignUp'
+import WorkshopPage from './pages/WorkshopPage'
 import StudentDashboard from './components/student/StudentDashboard'
 import MasterAdminLogin from './components/master-admin/MasterAdminLogin'
 import MasterDashboard from './components/master-admin/MasterDashboard'
@@ -16,6 +17,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/workshop" element={<WorkshopPage />} />
         <Route path="/about" element={<Navigate to="/#about" replace />} />
         <Route
           path="/signin"

@@ -38,6 +38,7 @@ import {
   FiArchive,
   FiTrendingUp,
   FiDownload,
+  FiLink,
 } from 'react-icons/fi'
 import { FaIdCard, FaVideo, FaBullhorn, FaTicketAlt } from 'react-icons/fa'
 import logo from '../../assets/tnslogo.png'
@@ -53,6 +54,7 @@ import PrintCardsPage from './id-card/PrintCardsPage.jsx'
 import AdmissionsPage from './erp/AdmissionsPage.jsx'
 import AdmissionFormPage from './erp/AdmissionFormPage.jsx'
 import UniversitiesPage from './erp/UniversitiesPage.jsx'
+import WorkshopRegistrationsPage from './workshops/WorkshopRegistrationsPage.jsx'
 import CoursesPage from './erp/CoursesPage.jsx'
 import FeesPage from './erp/FeesPage.jsx'
 import AccountingPage from './finance/AccountingPage.jsx'
@@ -115,6 +117,7 @@ const sideMenu = [
       'Admissions',
       'New Admission',
       'Universities',
+      'Workshop Registrations',
       'Students',
       'Profile Requests',
       'ID Card Generate',
@@ -228,6 +231,7 @@ const itemIcon = {
   Admissions: FiClipboard,
   'New Admission': FiClipboard,
   Universities: FiGlobe,
+  'Workshop Registrations': FiLink,
   Students: FiUsers,
   'Profile Requests': FiUserCheck,
   'ID Card Generate': FaIdCard,
@@ -572,6 +576,7 @@ export default function MasterDashboard() {
     if (activeSection === 'Admissions') return <AdmissionsPage />
     if (activeSection === 'New Admission') return <AdmissionFormPage />
     if (activeSection === 'Universities') return <UniversitiesPage />
+    if (activeSection === 'Workshop Registrations') return <WorkshopRegistrationsPage />
     if (activeSection === 'Courses') return <CoursesPage />
     if (activeSection === 'Fees') return <FeesPage />
     if (activeSection === 'Accounting') return <AccountingPage />

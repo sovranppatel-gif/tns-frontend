@@ -59,6 +59,32 @@ const EDU_DOC_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gi
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
+/** Semester/Year selector metadata for a course — mirrors the master-admin
+ * Admission Form's academicTermMeta() so both forms agree with the backend's
+ * resolveAdmissionAcademics() validation (admissions.routes.js). */
+function academicTermMeta(course) {
+  if (!course) return { termType: '', count: 0, options: [] }
+  const structureType = String(course.structureType || '').trim()
+  if (structureType === 'Single Level') {
+    return { termType: '', count: 0, options: [] }
+  }
+
+  const fromList = Array.isArray(course.semesters) ? course.semesters.length : 0
+  const count = Number(course.semesterCount) || fromList || 0
+  if (count <= 0) return { termType: '', count: 0, options: [] }
+
+  const termType = structureType === 'Year' ? 'Year' : 'Semester'
+  const options = Array.from({ length: count }, (_, i) => {
+    const number = i + 1
+    const sem = Array.isArray(course.semesters)
+      ? course.semesters.find((row) => Number(row.number) === number)
+      : null
+    const label = String(sem?.title || '').trim() || `${termType} ${number}`
+    return { number, label }
+  })
+  return { termType, count, options }
+}
+
 function Field({ label, required, children }) {
   return (
     <label className="block">
@@ -102,6 +128,8 @@ export default function OnlineAdmissionPage() {
     universityId: '',
     course: '',
     courseId: '',
+    termType: '',
+    termNumber: '',
     session: '2026-2027',
     admissionDate: todayIso(),
     photoPreview: '',
@@ -202,6 +230,8 @@ export default function OnlineAdmissionPage() {
     () => courseOptions.find((c) => c.id === form.courseId || c.label === form.course) || null,
     [courseOptions, form.courseId, form.course],
   )
+
+  const termMeta = useMemo(() => academicTermMeta(selectedCourse), [selectedCourse])
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -363,6 +393,9 @@ export default function OnlineAdmissionPage() {
     if (!form.contactNo.trim()) next.contactNo = 'Required'
     if (!form.universityId) next.universityId = 'Required'
     if (!form.course) next.course = 'Required'
+    if (termMeta.count > 0 && !form.termNumber) {
+      next.termNumber = `Please select ${termMeta.termType.toLowerCase()}`
+    }
     if (!form.agreeAffidavit) next.agreeAffidavit = 'Please accept the affidavit'
     if (!form.paymentMode) next.paymentMode = 'Required'
     if (!form.paymentAmount.trim()) next.paymentAmount = 'Required'
@@ -453,6 +486,8 @@ export default function OnlineAdmissionPage() {
         courseId: selectedCourse?.id || form.courseId || '',
         courseCode: selectedCourse?.code || '',
         courseDuration: selectedCourse?.durationLabel || '',
+        termType: form.termType || termMeta.termType || '',
+        termNumber: form.termNumber ? Number(form.termNumber) : '',
         agreeAffidavit: form.agreeAffidavit,
         payment: {
           mode: form.paymentMode,
@@ -626,6 +661,7 @@ export default function OnlineAdmissionPage() {
                   const value = e.target.value
                   const picked =
                     courseOptions.find((c) => c.id === value || c.label === value) || null
+                  const meta = academicTermMeta(picked)
                   setForm((prev) => ({
                     ...prev,
                     courseId: picked?.id || value,
@@ -633,11 +669,14 @@ export default function OnlineAdmissionPage() {
                     totalFee: picked?.feesTotal || prev.totalFee || '',
                     registrationFee:
                       picked?.feesRegistration || prev.registrationFee || '',
+                    termType: meta.termType,
+                    termNumber: '',
                   }))
-                  if (errors.course) {
+                  if (errors.course || errors.termNumber) {
                     setErrors((prev) => {
                       const next = { ...prev }
                       delete next.course
+                      delete next.termNumber
                       return next
                     })
                   }
@@ -664,6 +703,26 @@ export default function OnlineAdmissionPage() {
                 <p className="mt-1 text-[11px] text-slate-500">Fees: {selectedCourse.feesTotal}</p>
               ) : null}
             </Field>
+            {termMeta.count > 0 ? (
+              <Field label={termMeta.termType} required>
+                <select
+                  className={fieldClass}
+                  value={form.termNumber}
+                  disabled={Boolean(isUnderReview)}
+                  onChange={(e) => setField('termNumber', e.target.value)}
+                >
+                  <option value="">Select {termMeta.termType.toLowerCase()}</option>
+                  {termMeta.options.map((option) => (
+                    <option key={option.number} value={option.number}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.termNumber ? (
+                  <p className="mt-1 text-[11px] text-rose-600">{errors.termNumber}</p>
+                ) : null}
+              </Field>
+            ) : null}
             <Field label="Session">
               <input
                 className={fieldClass}

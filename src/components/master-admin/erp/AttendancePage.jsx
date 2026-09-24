@@ -14,6 +14,7 @@ import {
   Users,
   Clock3,
   FileSpreadsheet,
+  MapPin,
   X,
 } from 'lucide-react'
 import { getUniversities } from '../../../services/universityService.js'
@@ -29,6 +30,10 @@ import {
   setAttendanceLock,
   updateAttendance,
 } from '../../../services/attendanceService.js'
+import {
+  getAttendanceSettings,
+  updateAttendanceSettings,
+} from '../../../services/attendanceSettingsService.js'
 import { API_URL } from '../../../utils/api.js'
 import {
   StatCard,
@@ -310,6 +315,11 @@ export default function AttendancePage() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyData, setHistoryData] = useState(null)
+
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsForm, setSettingsForm] = useState(null)
+  const [settingsBusy, setSettingsBusy] = useState(false)
+  const [settingsError, setSettingsError] = useState('')
 
   const [reportRows, setReportRows] = useState([])
   const [reportMeta, setReportMeta] = useState(null)
@@ -777,6 +787,41 @@ export default function AttendancePage() {
     }
   }
 
+  const openSettings = async () => {
+    setSettingsOpen(true)
+    setSettingsError('')
+    setSettingsForm(null)
+    try {
+      const entry = await getAttendanceSettings()
+      setSettingsForm({
+        latitude: entry.latitude ?? '',
+        longitude: entry.longitude ?? '',
+        radiusMeters: entry.radiusMeters ?? 300,
+        earlyWindowMinutes: entry.earlyWindowMinutes ?? 15,
+        lateGraceMinutes: entry.lateGraceMinutes ?? 15,
+        maxAccuracyMeters: entry.maxAccuracyMeters ?? 50,
+        maxLocationAgeSeconds: entry.maxLocationAgeSeconds ?? 30,
+      })
+    } catch (err) {
+      setSettingsError(err?.message || 'Unable to load attendance settings')
+    }
+  }
+
+  const saveSettings = async () => {
+    if (!settingsForm) return
+    setSettingsBusy(true)
+    setSettingsError('')
+    try {
+      await updateAttendanceSettings(settingsForm)
+      setSettingsOpen(false)
+      setToast('Institute attendance settings saved')
+    } catch (err) {
+      setSettingsError(err?.message || 'Unable to save attendance settings')
+    } finally {
+      setSettingsBusy(false)
+    }
+  }
+
   const toggleLock = async (nextLocked) => {
     if (!filtersReady) return
     setBusy(true)
@@ -896,6 +941,22 @@ export default function AttendancePage() {
         ),
       },
       {
+        key: 'source',
+        label: 'Source',
+        render: (row) => (
+          <div className="min-w-0">
+            <span className="whitespace-nowrap text-xs text-slate-600">
+              {row.method === 'Mobile GPS' ? '📱 Mobile GPS' : row.marked ? '👨‍💼 Admin' : '—'}
+            </span>
+            {row.method === 'Mobile GPS' && Number.isFinite(row.distanceMeters) ? (
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                {row.distanceMeters}m{Number.isFinite(row.accuracy) ? ` · ±${Math.round(row.accuracy)}m` : ''}
+              </p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
         key: '_actions',
         label: 'Action',
         render: (row) => (
@@ -964,7 +1025,16 @@ export default function AttendancePage() {
         </div>
       ) : null}
 
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Tabs tabs={TABS} active={tab} onChange={setTab} />
+        <button
+          type="button"
+          onClick={openSettings}
+          className={`${secondaryBtn} !px-3 !py-1.5 text-xs`}
+        >
+          <MapPin size={13} /> Institute location &amp; GPS radius
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard
@@ -1603,6 +1673,7 @@ export default function AttendancePage() {
                     <th className="py-2">Date</th>
                     <th className="py-2">Semester</th>
                     <th className="py-2">Status</th>
+                    <th className="py-2">Source</th>
                     <th className="py-2">Remarks</th>
                     <th className="py-2">Marked By</th>
                   </tr>
@@ -1614,6 +1685,24 @@ export default function AttendancePage() {
                       <td className="py-2">{row.semesterTitle || (row.semester ? `Sem ${row.semester}` : '—')}</td>
                       <td className="py-2">
                         <StatusBadge status={row.status} />
+                      </td>
+                      <td className="py-2 text-slate-600">
+                        {row.method === 'Mobile GPS' ? (
+                          <span>
+                            📱 Mobile GPS
+                            {Number.isFinite(row.distanceMeters) ? (
+                              <span className="text-slate-400">
+                                {' '}
+                                · {row.distanceMeters}m
+                                {Number.isFinite(row.accuracy) ? ` · ±${Math.round(row.accuracy)}m` : ''}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : row.method ? (
+                          `👨‍💼 ${row.method}`
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="py-2 text-slate-600">{row.remarks || '—'}</td>
                       <td className="py-2 text-slate-600">{row.markedBy || '—'}</td>
@@ -1627,6 +1716,132 @@ export default function AttendancePage() {
             </div>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        open={settingsOpen}
+        title="Institute location & GPS attendance radius"
+        onClose={() => setSettingsOpen(false)}
+        footer={
+          settingsForm ? (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                className={`${secondaryBtn} !px-4 text-sm`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={settingsBusy}
+                onClick={saveSettings}
+                className={`${primaryBtn} !px-4 text-sm disabled:opacity-60`}
+              >
+                {settingsBusy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          ) : null
+        }
+      >
+        {settingsError ? (
+          <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {settingsError}
+          </div>
+        ) : null}
+        {!settingsForm ? (
+          <p className="text-sm text-slate-500">Loading…</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">
+              Used by the student mobile app to verify a student is physically at the
+              institute before accepting a GPS check-in. Get coordinates from Google Maps
+              (right-click the institute location → copy coordinates).
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block text-xs font-medium text-slate-600">
+                Latitude
+                <input
+                  type="number"
+                  step="any"
+                  value={settingsForm.latitude}
+                  onChange={(e) => setSettingsForm((p) => ({ ...p, latitude: e.target.value }))}
+                  className={dateFieldClass}
+                  placeholder="23.123456"
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Longitude
+                <input
+                  type="number"
+                  step="any"
+                  value={settingsForm.longitude}
+                  onChange={(e) => setSettingsForm((p) => ({ ...p, longitude: e.target.value }))}
+                  className={dateFieldClass}
+                  placeholder="79.123456"
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Attendance radius (meters)
+                <input
+                  type="number"
+                  min={10}
+                  value={settingsForm.radiusMeters}
+                  onChange={(e) => setSettingsForm((p) => ({ ...p, radiusMeters: e.target.value }))}
+                  className={dateFieldClass}
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Attendance opens before class (minutes)
+                <input
+                  type="number"
+                  min={0}
+                  value={settingsForm.earlyWindowMinutes}
+                  onChange={(e) =>
+                    setSettingsForm((p) => ({ ...p, earlyWindowMinutes: e.target.value }))
+                  }
+                  className={dateFieldClass}
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Late grace period (minutes)
+                <input
+                  type="number"
+                  min={0}
+                  value={settingsForm.lateGraceMinutes}
+                  onChange={(e) =>
+                    setSettingsForm((p) => ({ ...p, lateGraceMinutes: e.target.value }))
+                  }
+                  className={dateFieldClass}
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Max GPS accuracy allowed (meters)
+                <input
+                  type="number"
+                  min={5}
+                  value={settingsForm.maxAccuracyMeters}
+                  onChange={(e) =>
+                    setSettingsForm((p) => ({ ...p, maxAccuracyMeters: e.target.value }))
+                  }
+                  className={dateFieldClass}
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                Max location age allowed (seconds)
+                <input
+                  type="number"
+                  min={5}
+                  value={settingsForm.maxLocationAgeSeconds}
+                  onChange={(e) =>
+                    setSettingsForm((p) => ({ ...p, maxLocationAgeSeconds: e.target.value }))
+                  }
+                  className={dateFieldClass}
+                />
+              </label>
+            </div>
+          </div>
+        )}
       </Modal>
     </section>
   )

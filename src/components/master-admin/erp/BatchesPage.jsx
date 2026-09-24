@@ -10,6 +10,7 @@ import {
   UserPlus,
   ChevronRight,
   ChevronLeft,
+  Clock,
 } from 'lucide-react'
 import { DateInput } from '../../shared/DateInput.jsx'
 import {
@@ -57,6 +58,20 @@ const SCHEDULE_PRESETS = [
   'Sat–Sun · Weekend',
 ]
 
+// Structured class days — used to drive the student app's mobile GPS
+// attendance window (Batch.days/startTime/endTime), independent of the
+// free-text `schedule` display string above.
+const BATCH_DAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+]
+const BATCH_DAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
+
 const WIZARD_STEPS = [
   { id: 1, label: 'Course' },
   { id: 2, label: 'Batch' },
@@ -82,6 +97,9 @@ function emptyBatchForm() {
     startDate: todayIso(),
     endDate: '',
     faculty: '',
+    days: [],
+    startTime: '',
+    endTime: '',
   }
 }
 
@@ -134,6 +152,11 @@ export default function BatchesPage() {
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedAvailable, setSelectedAvailable] = useState([])
   const [selectedAssigned, setSelectedAssigned] = useState([])
+
+  const [scheduleEditRow, setScheduleEditRow] = useState(null)
+  const [scheduleEditForm, setScheduleEditForm] = useState(null)
+  const [scheduleEditBusy, setScheduleEditBusy] = useState(false)
+  const [scheduleEditError, setScheduleEditError] = useState('')
 
   const reloadCourses = useCallback(async () => {
     const courseData = await getCourses({ status: 'Active' }).catch(() => ({ rows: [] }))
@@ -337,6 +360,39 @@ export default function BatchesPage() {
     }
   }
 
+  const openScheduleEdit = (row) => {
+    setScheduleEditRow(row)
+    setScheduleEditError('')
+    setScheduleEditForm({
+      days: Array.isArray(row.days) ? row.days : [],
+      startTime: row.startTime || '',
+      endTime: row.endTime || '',
+      schedule: row.schedule || '',
+    })
+  }
+
+  const saveScheduleEdit = async () => {
+    if (!scheduleEditRow || !scheduleEditForm) return
+    setScheduleEditBusy(true)
+    setScheduleEditError('')
+    try {
+      const entry = await updateBatch(scheduleEditRow._id, {
+        days: scheduleEditForm.days,
+        startTime: scheduleEditForm.startTime,
+        endTime: scheduleEditForm.endTime,
+        schedule: scheduleEditForm.schedule,
+      })
+      setRows((prev) => prev.map((r) => (r._id === scheduleEditRow._id ? { ...r, ...entry } : r)))
+      setToast(`Batch ${entry.batchId} schedule updated`)
+      setScheduleEditRow(null)
+      setScheduleEditForm(null)
+    } catch (err) {
+      setScheduleEditError(err?.message || 'Unable to update schedule')
+    } finally {
+      setScheduleEditBusy(false)
+    }
+  }
+
   const handleDelete = async (row) => {
     if (!row?._id) return
     const ok = window.confirm(`Archive batch ${row.batchId || row.name}?`)
@@ -459,6 +515,9 @@ export default function BatchesPage() {
         startDate: batchForm.startDate,
         endDate: batchForm.endDate || undefined,
         faculty: batchForm.faculty.trim(),
+        days: batchForm.days,
+        startTime: batchForm.startTime,
+        endTime: batchForm.endTime,
       })
       setCreatedBatch(entry)
       setToast(`Batch ${entry.batchId} created`)
@@ -691,6 +750,17 @@ export default function BatchesPage() {
             className={`${secondaryBtn} !px-2.5 !py-1 text-xs disabled:opacity-50`}
           >
             <UserPlus size={12} /> Students
+          </button>
+          <button
+            type="button"
+            disabled={busyId === row._id}
+            onClick={(e) => {
+              e.stopPropagation()
+              openScheduleEdit(row)
+            }}
+            className={`${secondaryBtn} !px-2.5 !py-1 text-xs disabled:opacity-50`}
+          >
+            <Clock size={12} /> Schedule
           </button>
           <button
             type="button"
@@ -1119,6 +1189,56 @@ export default function BatchesPage() {
                   ))}
                 </div>
               </label>
+              <div className="block text-xs font-medium text-slate-600 sm:col-span-2">
+                Class days &amp; time (for student mobile GPS attendance)
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {BATCH_DAYS.map((day) => {
+                    const active = batchForm.days.includes(day)
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() =>
+                          setBatchForm((p) => ({
+                            ...p,
+                            days: active ? p.days.filter((d) => d !== day) : [...p.days, day],
+                          }))
+                        }
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                          active
+                            ? 'border-[#00A896] bg-[#00A896]/15 text-[#005F6B]'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-[#00A896] hover:text-[#008C95]'
+                        }`}
+                      >
+                        {BATCH_DAY_SHORT[day]}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="block text-[11px] font-normal text-slate-500">
+                    Start time
+                    <input
+                      type="time"
+                      value={batchForm.startTime}
+                      onChange={(e) => setBatchForm((p) => ({ ...p, startTime: e.target.value }))}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="block text-[11px] font-normal text-slate-500">
+                    End time
+                    <input
+                      type="time"
+                      value={batchForm.endTime}
+                      onChange={(e) => setBatchForm((p) => ({ ...p, endTime: e.target.value }))}
+                      className={inputClass}
+                    />
+                  </label>
+                </div>
+                <p className="mt-1 text-[11px] font-normal text-slate-400">
+                  Leave days/times blank to keep this batch on manual-only attendance.
+                </p>
+              </div>
               <label className="block text-xs font-medium text-slate-600">
                 Strength / capacity
                 <input
@@ -1290,6 +1410,108 @@ export default function BatchesPage() {
                 </div>
               </div>
             )}
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={Boolean(scheduleEditRow)}
+        title={`Class schedule · ${scheduleEditRow?.batchId || scheduleEditRow?.name || ''}`}
+        onClose={() => {
+          setScheduleEditRow(null)
+          setScheduleEditForm(null)
+        }}
+        footer={
+          scheduleEditForm ? (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleEditRow(null)
+                  setScheduleEditForm(null)
+                }}
+                className={`${secondaryBtn} !px-4 text-sm`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={scheduleEditBusy}
+                onClick={saveScheduleEdit}
+                className={`${primaryBtn} !px-4 text-sm disabled:opacity-60`}
+              >
+                {scheduleEditBusy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          ) : null
+        }
+      >
+        {scheduleEditError ? (
+          <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {scheduleEditError}
+          </div>
+        ) : null}
+        {scheduleEditForm ? (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">
+              Drives the student mobile app's GPS attendance window. Leave days/times blank to
+              keep this batch on manual-only attendance.
+            </p>
+            <label className="block text-xs font-medium text-slate-600">
+              Timing / schedule (display text)
+              <input
+                value={scheduleEditForm.schedule}
+                onChange={(e) => setScheduleEditForm((p) => ({ ...p, schedule: e.target.value }))}
+                className={inputClass}
+              />
+            </label>
+            <div>
+              <p className="text-xs font-medium text-slate-600">Class days</p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {BATCH_DAYS.map((day) => {
+                  const active = scheduleEditForm.days.includes(day)
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() =>
+                        setScheduleEditForm((p) => ({
+                          ...p,
+                          days: active ? p.days.filter((d) => d !== day) : [...p.days, day],
+                        }))
+                      }
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                        active
+                          ? 'border-[#00A896] bg-[#00A896]/15 text-[#005F6B]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-[#00A896] hover:text-[#008C95]'
+                      }`}
+                    >
+                      {BATCH_DAY_SHORT[day]}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-xs font-medium text-slate-600">
+                Start time
+                <input
+                  type="time"
+                  value={scheduleEditForm.startTime}
+                  onChange={(e) => setScheduleEditForm((p) => ({ ...p, startTime: e.target.value }))}
+                  className={inputClass}
+                />
+              </label>
+              <label className="block text-xs font-medium text-slate-600">
+                End time
+                <input
+                  type="time"
+                  value={scheduleEditForm.endTime}
+                  onChange={(e) => setScheduleEditForm((p) => ({ ...p, endTime: e.target.value }))}
+                  className={inputClass}
+                />
+              </label>
+            </div>
           </div>
         ) : null}
       </Modal>
